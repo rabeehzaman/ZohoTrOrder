@@ -260,11 +260,10 @@ function selectProduct(itemId) {
     updateCalculatedQuantity();
     document.getElementById('quantity-popup').style.display = 'flex';
     
-    // Focus and select the quantity input for immediate editing
+    // Focus on pieces radio button for arrow key navigation
     setTimeout(() => {
-        const quantityInput = document.getElementById('quantity-input');
-        quantityInput.focus();
-        quantityInput.select();
+        const piecesRadio = document.getElementById('unit-pieces');
+        piecesRadio.focus();
         
         // Setup popup keyboard navigation
         setupPopupNavigation();
@@ -396,8 +395,8 @@ function setupTabNavigation() {
     const toWarehouse = document.getElementById('to-warehouse');
     const createTransferBtn = document.getElementById('create-transfer-btn');
     
-    // Tab order: search → from-warehouse → to-warehouse → create-transfer-btn → search
-    const tabOrder = [searchInput, fromWarehouse, toWarehouse, createTransferBtn];
+    // Tab order: search ↔ create-transfer-btn (skip warehouses)
+    const tabOrder = [searchInput, createTransferBtn];
     
     tabOrder.forEach((element, index) => {
         element.addEventListener('keydown', function(e) {
@@ -409,9 +408,21 @@ function setupTabNavigation() {
                 // Auto-open dropdown for select elements
                 if (nextElement.tagName === 'SELECT') {
                     nextElement.focus();
-                    // Trigger click to open dropdown (browser dependent)
+                    // Use multiple methods to open dropdown
                     setTimeout(() => {
-                        if (nextElement.click) nextElement.click();
+                        // Method 1: Trigger mousedown event
+                        const mousedownEvent = new MouseEvent('mousedown', {
+                            view: window,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        nextElement.dispatchEvent(mousedownEvent);
+                        
+                        // Method 2: Set size temporarily to show options
+                        nextElement.size = nextElement.options.length;
+                        setTimeout(() => {
+                            nextElement.size = 1;
+                        }, 100);
                     }, 50);
                 } else {
                     nextElement.focus();

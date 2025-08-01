@@ -213,17 +213,48 @@ app.get('/api/items', async (req, res) => {
     }
     
     try {
-        const response = await axios.get(`${ZOHO_API_URL}/items`, {
-            headers: {
-                'Authorization': `Zoho-oauthtoken ${accessToken}`
-            },
-            params: {
-                organization_id: process.env.ZOHO_ORGANIZATION_ID
-            }
-        });
+        let allItems = [];
+        let page = 1;
+        let hasMorePages = true;
         
-        console.log('Items fetched successfully:', response.data.items?.length || 0);
-        res.json(response.data);
+        // Fetch all pages of items
+        while (hasMorePages) {
+            console.log(`Fetching items page ${page}...`);
+            
+            const response = await axios.get(`${ZOHO_API_URL}/items`, {
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${accessToken}`
+                },
+                params: {
+                    organization_id: process.env.ZOHO_ORGANIZATION_ID,
+                    per_page: 200,  // Zoho's max per page
+                    page: page
+                }
+            });
+            
+            if (response.data.items && response.data.items.length > 0) {
+                allItems = allItems.concat(response.data.items);
+                console.log(`Page ${page}: ${response.data.items.length} items, Total: ${allItems.length}`);
+                
+                // Check if there are more pages
+                if (response.data.items.length < 200) {
+                    hasMorePages = false;
+                } else {
+                    page++;
+                }
+            } else {
+                hasMorePages = false;
+            }
+        }
+        
+        console.log('All items fetched successfully:', allItems.length);
+        
+        // Return in the same format as original response
+        res.json({
+            code: 0,
+            message: 'success',
+            items: allItems
+        });
     } catch (error) {
         console.error('Error fetching items:', error.response?.data || error.message);
         

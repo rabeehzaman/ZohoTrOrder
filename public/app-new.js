@@ -3,8 +3,76 @@ let locations = [];
 let cart = [];
 let currentProduct = null;
 
+// Loading state management
+const LoadingStates = {
+    CONNECTING: 'connecting',
+    SYNCING: 'syncing', 
+    READY: 'ready'
+};
+
+let currentLoadingState = LoadingStates.CONNECTING;
+let loadingProgress = {
+    items: { current: 0, total: 0 },
+    warehouses: { current: 0, total: 0 }
+};
+
+function showLoadingState(state, message = '') {
+    const overlay = document.getElementById('loading-overlay');
+    const title = document.getElementById('loading-title');
+    const messageEl = document.getElementById('loading-message');
+    const progressContainer = document.getElementById('loading-progress');
+    
+    currentLoadingState = state;
+    overlay.classList.remove('hidden');
+    
+    switch (state) {
+        case LoadingStates.CONNECTING:
+            title.textContent = 'Connecting to Zoho...';
+            messageEl.textContent = message || 'Please wait while we establish connection';
+            progressContainer.style.display = 'none';
+            break;
+            
+        case LoadingStates.SYNCING:
+            title.textContent = '✅ Connected to Zoho';
+            messageEl.textContent = message || 'Syncing items and warehouses...';
+            progressContainer.style.display = 'block';
+            updateProgress();
+            break;
+            
+        case LoadingStates.READY:
+            hideLoadingState();
+            break;
+    }
+}
+
+function updateProgress() {
+    const itemsProgress = document.getElementById('items-progress');
+    const warehousesProgress = document.getElementById('warehouses-progress');
+    const progressFill = document.getElementById('progress-fill');
+    
+    itemsProgress.textContent = `${loadingProgress.items.current}/${loadingProgress.items.total}`;
+    warehousesProgress.textContent = `${loadingProgress.warehouses.current}/${loadingProgress.warehouses.total}`;
+    
+    const totalCurrent = loadingProgress.items.current + loadingProgress.warehouses.current;
+    const totalExpected = loadingProgress.items.total + loadingProgress.warehouses.total;
+    
+    if (totalExpected > 0) {
+        const percentage = (totalCurrent / totalExpected) * 100;
+        progressFill.style.width = `${percentage}%`;
+    }
+}
+
+function hideLoadingState() {
+    const overlay = document.getElementById('loading-overlay');
+    overlay.classList.add('hidden');
+    currentLoadingState = LoadingStates.READY;
+}
+
 // Check if we have auth code or status in URL
 window.onload = async function() {
+    // Start with connecting state
+    showLoadingState(LoadingStates.CONNECTING);
+    
     const urlParams = new URLSearchParams(window.location.search);
     const authStatus = urlParams.get('auth');
     const code = urlParams.get('code');
@@ -15,6 +83,7 @@ window.onload = async function() {
         // Clean URL
         window.history.replaceState({}, document.title, '/');
     } else if (authStatus === 'error') {
+        hideLoadingState();
         alert('Authentication failed. Please try again.');
         window.history.replaceState({}, document.title, '/');
     } else if (code) {
@@ -29,15 +98,17 @@ window.onload = async function() {
             if (response.ok) {
                 showMainContent();
                 loadData();
+            } else {
+                hideLoadingState();
             }
         } catch (error) {
             console.error('Auth error:', error);
+            hideLoadingState();
         }
     }
     
     // Show manual code button
     document.getElementById('manual-code-btn').style.display = 'inline-block';
-    document.getElementById('custom-scope-btn').style.display = 'inline-block';
     
     // Check auth status
     checkAuthStatus();
@@ -56,13 +127,14 @@ async function checkAuthStatus() {
         } else {
             // Auto-authenticate if not authenticated
             console.log('Not authenticated, auto-connecting to Zoho...');
-            document.getElementById('status-text').textContent = 'Auto-connecting to Zoho...';
+            showLoadingState(LoadingStates.CONNECTING, 'Auto-connecting to Zoho...');
             setTimeout(() => {
                 login();
             }, 1000); // Small delay to let UI load
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
+        hideLoadingState();
     }
 }
 
@@ -75,39 +147,19 @@ async function login() {
 function showMainContent() {
     document.getElementById('main-content').style.display = 'block';
     document.getElementById('login-btn').style.display = 'none';
-    document.getElementById('logout-btn').style.display = 'inline-block';
     document.getElementById('sync-btn').style.display = 'inline-block';
     document.getElementById('status-text').textContent = 'Connected';
 }
 
-async function logout() {
-    try {
-        await fetch('/auth/logout', { method: 'POST' });
-        
-        // Reset UI
-        document.getElementById('main-content').style.display = 'none';
-        document.getElementById('login-btn').style.display = 'inline-block';
-        document.getElementById('logout-btn').style.display = 'none';
-        document.getElementById('sync-btn').style.display = 'none';
-        document.getElementById('status-text').textContent = '';
-        
-        // Clear data
-        items = [];
-        locations = [];
-        cart = [];
-        updateCartDisplay();
-        
-        alert('Disconnected successfully. You can now reconnect with new permissions.');
-    } catch (error) {
-        console.error('Logout error:', error);
-        alert('Error disconnecting: ' + error.message);
-    }
-}
-
 async function loadData() {
-    document.getElementById('status-text').textContent = 'Syncing...';
+    // Switch to syncing state
+    showLoadingState(LoadingStates.SYNCING);
     
-    // Load items
+    // Estimate totals for progress tracking
+    loadingProgress.items.total = 2865; // Estimated based on your data
+    loadingProgress.warehouses.total = 5; // Estimated based on your data
+    
+    // Load items with progress tracking
     try {
         const itemsResponse = await fetch('/api/items');
         if (!itemsResponse.ok) {
@@ -118,17 +170,27 @@ async function loadData() {
         if (itemsData.code === 0) {
             items = itemsData.items || [];
             console.log('Loaded items:', items);
+            
+            // Update progress
+            loadingProgress.items.current = items.length;
+            loadingProgress.items.total = items.length; // Actual count
+            updateProgress();
+            
             document.getElementById('items-count').textContent = items.length;
         } else {
             console.error('Zoho API error:', itemsData.message);
+            hideLoadingState();
             alert('Failed to load items: ' + itemsData.message);
+            return;
         }
     } catch (error) {
         console.error('Failed to load items:', error);
+        hideLoadingState();
         alert('Failed to load items. Please check your authentication.');
+        return;
     }
     
-    // Load locations
+    // Load locations with progress tracking
     try {
         const locationsResponse = await fetch('/api/locations');
         if (!locationsResponse.ok) {
@@ -138,6 +200,12 @@ async function loadData() {
         
         if (locationsData.code === 0) {
             locations = locationsData.locations || [];
+            
+            // Update progress
+            loadingProgress.warehouses.current = locations.length;
+            loadingProgress.warehouses.total = locations.length; // Actual count
+            updateProgress();
+            
             document.getElementById('warehouses-count').textContent = locations.length;
             
             // Clear existing options
@@ -162,14 +230,22 @@ async function loadData() {
             });
         } else {
             console.error('Zoho API error:', locationsData.message);
+            hideLoadingState();
             alert('Failed to load warehouses: ' + locationsData.message);
+            return;
         }
     } catch (error) {
         console.error('Failed to load locations:', error);
+        hideLoadingState();
         alert('Failed to load warehouses. Please check your authentication.');
+        return;
     }
     
-    document.getElementById('status-text').textContent = 'Connected';
+    // All data loaded successfully - hide loading overlay
+    setTimeout(() => {
+        hideLoadingState();
+        document.getElementById('status-text').textContent = 'Connected';
+    }, 500); // Small delay to show completion
 }
 
 function syncData() {
@@ -652,35 +728,6 @@ async function submitAuthCode() {
     }
 }
 
-function showCustomScopeInput() {
-    document.getElementById('scope-popup').style.display = 'flex';
-}
-
-function closeScopePopup() {
-    document.getElementById('scope-popup').style.display = 'none';
-}
-
-async function loginWithCustomScope() {
-    const customScope = document.getElementById('custom-scope-input').value.trim();
-    
-    if (!customScope) {
-        alert('Please enter a scope');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customScope })
-        });
-        const data = await response.json();
-        closeScopePopup();
-        window.location.href = data.authUrl;
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
-}
 
 async function createTransferOrder() {
     const fromWarehouse = document.getElementById('from-warehouse').value;

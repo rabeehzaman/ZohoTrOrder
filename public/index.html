@@ -12,13 +12,33 @@
 </head>
 <body>
     <div id="app">
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h2 id="loading-title">Connecting to Zoho...</h2>
+                <p id="loading-message">Please wait while we establish connection</p>
+                <div id="loading-progress" class="progress-container" style="display: none;">
+                    <div class="progress-item">
+                        <span>Items:</span>
+                        <span id="items-progress">0/0</span>
+                    </div>
+                    <div class="progress-item">
+                        <span>Warehouses:</span>
+                        <span id="warehouses-progress">0/0</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <header>
             <h1>Transfer Order POS</h1>
             <div id="auth-status">
                 <button id="login-btn" onclick="login()">Connect to Zoho</button>
                 <button id="manual-code-btn" onclick="showManualCodeInput()" style="display: none;">Enter Code Manually</button>
-                <button id="custom-scope-btn" onclick="showCustomScopeInput()" style="display: none;">Custom Scope</button>
-                <button id="logout-btn" onclick="logout()" style="display: none;">Disconnect</button>
                 <button id="sync-btn" onclick="syncData()" style="display: none;">Sync Data</button>
                 <span id="status-text"></span>
             </div>

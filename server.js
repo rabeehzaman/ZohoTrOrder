@@ -401,24 +401,38 @@ app.post('/api/transfer-orders', async (req, res) => {
     console.log('Creating transfer order with data:', JSON.stringify(req.body, null, 2));
     
     try {
-        // First fetch items to get names for the line items
-        const itemsResponse = await axios.get(`${ZOHO_API_URL}/items`, {
-            headers: {
-                'Authorization': `Zoho-oauthtoken ${accessToken}`
-            },
-            params: {
-                organization_id: process.env.ZOHO_ORGANIZATION_ID,
-                per_page: 200
-            }
-        });
-        
-        // Create a map of item_id to item_name for quick lookup
+        // Fetch ALL items with pagination to get names for the line items
+        console.log('Fetching all items with pagination...');
         const itemMap = {};
-        if (itemsResponse.data.items) {
-            itemsResponse.data.items.forEach(item => {
-                itemMap[item.item_id] = item.name;
+        let page = 1;
+        let hasMorePages = true;
+        let totalItemsFetched = 0;
+        
+        while (hasMorePages) {
+            const itemsResponse = await axios.get(`${ZOHO_API_URL}/items`, {
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${accessToken}`
+                },
+                params: {
+                    organization_id: process.env.ZOHO_ORGANIZATION_ID,
+                    per_page: 200,
+                    page: page
+                }
             });
+            
+            if (itemsResponse.data.items && itemsResponse.data.items.length > 0) {
+                itemsResponse.data.items.forEach(item => {
+                    itemMap[item.item_id] = item.name;
+                });
+                totalItemsFetched += itemsResponse.data.items.length;
+                console.log(`Fetched page ${page}: ${itemsResponse.data.items.length} items (Total: ${totalItemsFetched})`);
+            }
+            
+            hasMorePages = itemsResponse.data.page_context?.has_more_page || false;
+            page++;
         }
+        
+        console.log(`Completed item fetching: ${totalItemsFetched} total items loaded`);
         
         // Use correct field names as per Zoho API documentation
         const transferOrderData = {

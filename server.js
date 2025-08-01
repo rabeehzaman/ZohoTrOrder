@@ -424,7 +424,6 @@ app.post('/api/transfer-orders', async (req, res) => {
         const transferOrderData = {
             from_warehouse_id: String(req.body.from_location_id),
             to_warehouse_id: String(req.body.to_location_id),
-            transfer_order_number: `TO-${Date.now()}`,
             date: req.body.date || new Date().toISOString().split('T')[0],
             line_items: req.body.line_items.map(item => ({
                 item_id: String(item.item_id),

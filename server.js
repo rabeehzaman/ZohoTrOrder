@@ -263,7 +263,9 @@ app.get('/api/items', async (req, res) => {
             return item.item_type === 'inventory' && 
                    item.status === 'active' && 
                    item.is_returnable !== false &&
-                   !item.is_combo_product;
+                   !item.is_combo_product &&
+                   item.track_inventory === true &&
+                   item.product_type === 'goods';
         });
         
         console.log(`Filtered to ${inventoryItems.length} inventory items from ${allItems.length} total items`);
@@ -410,15 +412,8 @@ app.post('/api/transfer-orders', async (req, res) => {
                 quantity_transfer: Number(item.quantity_transfer) // Ensure quantity is a number
             };
             
-            // Only include name if it exists
-            if (item.name) {
-                lineItem.name = item.name;
-            }
-            
-            // Add unit if available
-            if (item.unit) {
-                lineItem.unit = item.unit;
-            }
+            // Note: Removed name field as it might cause issues with Zoho API
+            // The API will fetch the name based on item_id
             
             return lineItem;
         })

@@ -400,23 +400,16 @@ app.get('/api/locations', async (req, res) => {
 app.post('/api/transfer-orders', async (req, res) => {
     console.log('Creating transfer order with data:', JSON.stringify(req.body, null, 2));
     
-    // Ensure warehouse IDs are strings and use correct field names
+    // Use correct field names as per Zoho API documentation
     const transferOrderData = {
-        // Remove transfer_order_number to let Zoho auto-generate it
         date: req.body.date,
-        from_warehouse_id: String(req.body.from_location_id), // Use from_warehouse_id field name
-        to_warehouse_id: String(req.body.to_location_id), // Use to_warehouse_id field name
-        line_items: req.body.line_items.map(item => {
-            const lineItem = {
-                item_id: String(item.item_id), // Ensure item_id is a string
-                quantity_transfer: Number(item.quantity_transfer) // Ensure quantity is a number
-            };
-            
-            // Note: Removed name field as it might cause issues with Zoho API
-            // The API will fetch the name based on item_id
-            
-            return lineItem;
-        })
+        from_location_id: String(req.body.from_location_id), // Use from_location_id (not from_warehouse_id)
+        to_location_id: String(req.body.to_location_id), // Use to_location_id (not to_warehouse_id)
+        line_items: req.body.line_items.map(item => ({
+            item_id: String(item.item_id), // Ensure item_id is a string
+            quantity_transfer: Number(item.quantity_transfer), // Ensure quantity is a number
+            unit: "qty" // Add default unit
+        }))
     };
     
     console.log('Formatted transfer order data:', JSON.stringify(transferOrderData, null, 2));

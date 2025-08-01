@@ -6,9 +6,9 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="cache-buster" content="173500">
+    <meta name="cache-buster" content="174000">
     <title>Transfer Order POS</title>
-    <link rel="stylesheet" href="styles.css?v=172500">
+    <link rel="stylesheet" href="styles.css?v=174000">
 </head>
 <body>
     <div id="app">
@@ -47,20 +47,25 @@
                 </div>
             </div>
 
-            <!-- Search Bar -->
-            <div class="search-container">
-                <input type="text" id="search-input" placeholder="Start typing to search products by name or SKU..." />
-                <button onclick="searchProducts()">Search</button>
-            </div>
+            <!-- Main Content Layout -->
+            <div class="main-layout">
+                <!-- Left Side: Search -->
+                <div class="search-section">
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Start typing to search products by name or SKU..." />
+                        <button onclick="searchProducts()">Search</button>
+                    </div>
+                    <div id="search-results"></div>
+                </div>
 
-            <!-- Search Results -->
-            <div id="search-results"></div>
-
-            <!-- Cart -->
-            <div id="cart-section">
-                <h2>Transfer Order Items</h2>
-                <div id="cart-items"></div>
-                <button id="create-transfer-btn" onclick="createTransferOrder()">Create Transfer Order</button>
+                <!-- Right Side: Cart -->
+                <div class="cart-section">
+                    <div id="cart-section">
+                        <h2>Transfer Order Items</h2>
+                        <div id="cart-items"></div>
+                        <button id="create-transfer-btn" onclick="createTransferOrder()">Create Transfer Order</button>
+                    </div>
+                </div>
             </div>
         </div>
 

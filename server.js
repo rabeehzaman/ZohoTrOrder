@@ -401,19 +401,22 @@ app.post('/api/transfer-orders', async (req, res) => {
     console.log('Creating transfer order with data:', JSON.stringify(req.body, null, 2));
     
     try {
-        // Try to fetch all items with per_page=5000 first, fallback to pagination if needed
-        console.log('Attempting to fetch all items with per_page=5000...');
+        // Fetch all items using optimal per_page=1000 with pagination for remaining items
+        console.log('Fetching all items with optimized pagination (per_page=1000)...');
         const itemMap = {};
         let totalItemsFetched = 0;
+        let page = 1;
+        let hasMorePages = true;
         
-        try {
+        while (hasMorePages) {
             const itemsResponse = await axios.get(`${ZOHO_API_URL}/items`, {
                 headers: {
                     'Authorization': `Zoho-oauthtoken ${accessToken}`
                 },
                 params: {
                     organization_id: process.env.ZOHO_ORGANIZATION_ID,
-                    per_page: 5000
+                    per_page: 1000,
+                    page: page
                 }
             });
             
@@ -421,41 +424,12 @@ app.post('/api/transfer-orders', async (req, res) => {
                 itemsResponse.data.items.forEach(item => {
                     itemMap[item.item_id] = item.name;
                 });
-                totalItemsFetched = itemsResponse.data.items.length;
-                console.log(`✅ SUCCESS: Fetched ${totalItemsFetched} items in single call!`);
-                console.log(`Has more pages: ${itemsResponse.data.page_context?.has_more_page}`);
+                totalItemsFetched += itemsResponse.data.items.length;
+                console.log(`Fetched page ${page}: ${itemsResponse.data.items.length} items (Total: ${totalItemsFetched})`);
             }
-        } catch (error) {
-            console.log(`❌ per_page=5000 failed, falling back to pagination...`);
-            console.log(`Error: ${error.response?.data?.message || error.message}`);
             
-            // Fallback to pagination
-            let page = 1;
-            let hasMorePages = true;
-            
-            while (hasMorePages) {
-                const itemsResponse = await axios.get(`${ZOHO_API_URL}/items`, {
-                    headers: {
-                        'Authorization': `Zoho-oauthtoken ${accessToken}`
-                    },
-                    params: {
-                        organization_id: process.env.ZOHO_ORGANIZATION_ID,
-                        per_page: 200,
-                        page: page
-                    }
-                });
-                
-                if (itemsResponse.data.items && itemsResponse.data.items.length > 0) {
-                    itemsResponse.data.items.forEach(item => {
-                        itemMap[item.item_id] = item.name;
-                    });
-                    totalItemsFetched += itemsResponse.data.items.length;
-                    console.log(`Fetched page ${page}: ${itemsResponse.data.items.length} items (Total: ${totalItemsFetched})`);
-                }
-                
-                hasMorePages = itemsResponse.data.page_context?.has_more_page || false;
-                page++;
-            }
+            hasMorePages = itemsResponse.data.page_context?.has_more_page || false;
+            page++;
         }
         
         console.log(`Completed item fetching: ${totalItemsFetched} total items loaded`);

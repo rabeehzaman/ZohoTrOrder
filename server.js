@@ -400,21 +400,41 @@ app.get('/api/locations', async (req, res) => {
 app.post('/api/transfer-orders', async (req, res) => {
     console.log('Creating transfer order with data:', JSON.stringify(req.body, null, 2));
     
-    // Use correct field names as per Zoho API documentation
-    const transferOrderData = {
-        date: req.body.date,
-        from_location_id: String(req.body.from_location_id), // Use from_location_id (not from_warehouse_id)
-        to_location_id: String(req.body.to_location_id), // Use to_location_id (not to_warehouse_id)
-        line_items: req.body.line_items.map(item => ({
-            item_id: String(item.item_id), // Ensure item_id is a string
-            quantity_transfer: Number(item.quantity_transfer), // Ensure quantity is a number
-            unit: "qty" // Add default unit
-        }))
-    };
-    
-    console.log('Formatted transfer order data:', JSON.stringify(transferOrderData, null, 2));
-    
     try {
+        // First fetch items to get names for the line items
+        const itemsResponse = await axios.get(`${ZOHO_API_URL}/items`, {
+            headers: {
+                'Authorization': `Zoho-oauthtoken ${accessToken}`
+            },
+            params: {
+                organization_id: process.env.ZOHO_ORGANIZATION_ID,
+                per_page: 200
+            }
+        });
+        
+        // Create a map of item_id to item_name for quick lookup
+        const itemMap = {};
+        if (itemsResponse.data.items) {
+            itemsResponse.data.items.forEach(item => {
+                itemMap[item.item_id] = item.name;
+            });
+        }
+        
+        // Use correct field names as per Zoho API documentation
+        const transferOrderData = {
+            date: req.body.date,
+            from_location_id: String(req.body.from_location_id),
+            to_location_id: String(req.body.to_location_id),
+            line_items: req.body.line_items.map(item => ({
+                item_id: String(item.item_id),
+                name: itemMap[item.item_id] || `Item ${item.item_id}`, // Include required name field
+                quantity_transfer: Number(item.quantity_transfer),
+                unit: "qty"
+            }))
+        };
+        
+        console.log('Formatted transfer order data:', JSON.stringify(transferOrderData, null, 2));
+        
         const response = await axios.post(`${ZOHO_API_URL}/transferorders`, transferOrderData, {
             headers: {
                 'Authorization': `Zoho-oauthtoken ${accessToken}`,

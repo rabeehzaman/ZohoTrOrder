@@ -730,11 +730,42 @@ async function createTransferOrder() {
         }
         
         if (response.ok) {
-            alert('Transfer order created successfully!');
+            // Extract transfer order details
+            const transferOrderId = result.transfer_order.transfer_order_id;
+            const transferOrderNumber = result.transfer_order.transfer_order_number;
+            
+            // Create and trigger PDF download
+            try {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/api/transfer-orders/${transferOrderId}/pdf`;
+                downloadLink.download = `TransferOrder-${transferOrderNumber}.pdf`;
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
+                
+                // Click the link to start download
+                downloadLink.click();
+                
+                // Clean up
+                setTimeout(() => {
+                    document.body.removeChild(downloadLink);
+                }, 100);
+            } catch (downloadError) {
+                console.error('PDF download error:', downloadError);
+                // Still show success message even if PDF download fails
+            }
+            
+            alert(`Transfer order ${transferOrderNumber} created successfully! PDF downloading...`);
+            
+            // Clear cart and reset UI
             cart = [];
             updateCartDisplay();
             document.getElementById('search-input').value = '';
             document.getElementById('search-results').innerHTML = '';
+            
+            // Focus back to search input
+            setTimeout(() => {
+                document.getElementById('search-input').focus();
+            }, 500);
         } else {
             console.error('Transfer order failed:', result);
             let errorMsg = 'Failed to create transfer order: ';

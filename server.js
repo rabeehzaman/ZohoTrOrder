@@ -564,6 +564,76 @@ app.get('/debug/locations', async (req, res) => {
     }
 });
 
+// Download transfer order as PDF
+app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
+    console.log('Downloading transfer order PDF:', req.params.id);
+    
+    if (!accessToken) {
+        return res.status(401).json({ error: 'Not authenticated. Please login first.' });
+    }
+    
+    try {
+        const response = await axios.get(
+            `${ZOHO_API_URL}/transferorders/${req.params.id}`,
+            {
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                    'Accept': 'application/pdf'
+                },
+                params: {
+                    organization_id: process.env.ZOHO_ORGANIZATION_ID
+                },
+                responseType: 'stream'
+            }
+        );
+        
+        console.log('PDF download response received, streaming to client');
+        
+        // Set appropriate headers for PDF download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="TransferOrder-${req.params.id}.pdf"`);
+        
+        // Pipe the PDF stream directly to the response
+        response.data.pipe(res);
+        
+    } catch (error) {
+        console.error('PDF download error:', error.response?.data || error.message);
+        
+        if (error.response?.status === 401) {
+            // Try refreshing token
+            try {
+                await refreshAccessToken();
+                // Retry request
+                const retryResponse = await axios.get(
+                    `${ZOHO_API_URL}/transferorders/${req.params.id}`,
+                    {
+                        headers: {
+                            'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                            'Accept': 'application/pdf'
+                        },
+                        params: {
+                            organization_id: process.env.ZOHO_ORGANIZATION_ID
+                        },
+                        responseType: 'stream'
+                    }
+                );
+                
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename="TransferOrder-${req.params.id}.pdf"`);
+                retryResponse.data.pipe(res);
+            } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError);
+                res.status(401).json({ error: 'Authentication failed. Please login again.' });
+            }
+        } else {
+            res.status(500).json({ 
+                error: 'Failed to download PDF',
+                details: error.response?.data || error.message
+            });
+        }
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

@@ -428,7 +428,7 @@ async function createTransferOrder() {
         from_location_id: String(fromWarehouse),
         to_location_id: String(toWarehouse),
         line_items: cart.map(item => ({
-            item_id: parseInt(item.item_id) || item.item_id,
+            item_id: item.item_id, // Keep as string to prevent precision loss
             name: item.name,
             quantity_transfer: parseFloat(item.quantity_transfer),
             unit: item.unit

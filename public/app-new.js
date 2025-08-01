@@ -7,7 +7,10 @@ let currentProduct = null;
 const LoadingStates = {
     CONNECTING: 'connecting',
     SYNCING: 'syncing', 
-    READY: 'ready'
+    READY: 'ready',
+    CREATING_TRANSFER: 'creating_transfer',
+    GENERATING_PDF: 'generating_pdf',
+    DOWNLOADING_FILE: 'downloading_file'
 };
 
 let currentLoadingState = LoadingStates.CONNECTING;
@@ -37,6 +40,24 @@ function showLoadingState(state, message = '') {
             messageEl.textContent = message || 'Syncing items and warehouses...';
             progressContainer.style.display = 'block';
             updateProgress();
+            break;
+            
+        case LoadingStates.CREATING_TRANSFER:
+            title.textContent = '🔄 Creating Transfer Order';
+            messageEl.textContent = message || 'Processing your transfer order...';
+            progressContainer.style.display = 'none';
+            break;
+            
+        case LoadingStates.GENERATING_PDF:
+            title.textContent = '📄 Generating PDF';
+            messageEl.textContent = message || 'Creating transfer order document...';
+            progressContainer.style.display = 'none';
+            break;
+            
+        case LoadingStates.DOWNLOADING_FILE:
+            title.textContent = '⬇️ Downloading File';
+            messageEl.textContent = message || 'Downloading transfer order PDF...';
+            progressContainer.style.display = 'none';
             break;
             
         case LoadingStates.READY:
@@ -136,8 +157,6 @@ window.onload = async function() {
         }
     }
     
-    // Show manual code button
-    document.getElementById('manual-code-btn').style.display = 'inline-block';
     
     // Check auth status
     checkAuthStatus();
@@ -721,41 +740,6 @@ function closePopup() {
     currentProduct = null;
 }
 
-function showManualCodeInput() {
-    document.getElementById('code-popup').style.display = 'flex';
-}
-
-function closeCodePopup() {
-    document.getElementById('code-popup').style.display = 'none';
-    document.getElementById('auth-code-input').value = '';
-}
-
-async function submitAuthCode() {
-    const code = document.getElementById('auth-code-input').value.trim();
-    
-    if (!code) {
-        alert('Please enter the authorization code');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code })
-        });
-        
-        if (response.ok) {
-            closeCodePopup();
-            showMainContent();
-            loadData();
-        } else {
-            alert('Invalid authorization code. Please try again.');
-        }
-    } catch (error) {
-        alert('Error submitting code: ' + error.message);
-    }
-}
 
 
 async function createTransferOrder() {
@@ -780,6 +764,9 @@ async function createTransferOrder() {
         alert('Please add items to the transfer order');
         return;
     }
+    
+    // Show creating transfer loading state
+    showLoadingState(LoadingStates.CREATING_TRANSFER);
     
     const transferOrder = {
         // Remove transfer_order_number to let Zoho auto-generate it
@@ -807,6 +794,7 @@ async function createTransferOrder() {
             result = await response.json();
         } catch (parseError) {
             console.error('Failed to parse response:', parseError);
+            hideLoadingState();
             alert('Error: Invalid response from server');
             return;
         }
@@ -816,8 +804,14 @@ async function createTransferOrder() {
             const transferOrderId = result.transfer_order.transfer_order_id;
             const transferOrderNumber = result.transfer_order.transfer_order_number;
             
+            // Show PDF generation loading state
+            showLoadingState(LoadingStates.GENERATING_PDF);
+            
             // Create and trigger PDF download
             try {
+                // Show downloading loading state
+                showLoadingState(LoadingStates.DOWNLOADING_FILE);
+                
                 const downloadLink = document.createElement('a');
                 downloadLink.href = `/api/transfer-orders/${transferOrderId}/pdf`;
                 downloadLink.download = `TransferOrder-${transferOrderNumber}.pdf`;
@@ -831,25 +825,31 @@ async function createTransferOrder() {
                 setTimeout(() => {
                     document.body.removeChild(downloadLink);
                 }, 100);
+                
+                // Hide loading after download starts
+                setTimeout(() => {
+                    hideLoadingState();
+                    
+                    // Clear cart and reset UI
+                    cart = [];
+                    updateCartDisplay();
+                    document.getElementById('search-input').value = '';
+                    document.getElementById('search-results').innerHTML = '';
+                    
+                    // Focus back to search input
+                    setTimeout(() => {
+                        document.getElementById('search-input').focus();
+                    }, 100);
+                }, 1000); // Give time for download to start
+                
             } catch (downloadError) {
                 console.error('PDF download error:', downloadError);
-                // Still show success message even if PDF download fails
+                hideLoadingState();
+                alert('Transfer order created but PDF download failed');
             }
-            
-            alert(`Transfer order ${transferOrderNumber} created successfully! PDF downloading...`);
-            
-            // Clear cart and reset UI
-            cart = [];
-            updateCartDisplay();
-            document.getElementById('search-input').value = '';
-            document.getElementById('search-results').innerHTML = '';
-            
-            // Focus back to search input
-            setTimeout(() => {
-                document.getElementById('search-input').focus();
-            }, 500);
         } else {
             console.error('Transfer order failed:', result);
+            hideLoadingState();
             let errorMsg = 'Failed to create transfer order: ';
             if (result.details && result.details.code) {
                 errorMsg += `Code ${result.details.code}: ${result.details.message}`;
@@ -860,6 +860,7 @@ async function createTransferOrder() {
         }
     } catch (error) {
         console.error('Network error:', error);
+        hideLoadingState();
         alert('Error creating transfer order: ' + error.message);
     }
 }

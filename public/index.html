@@ -56,7 +56,6 @@
             <h1>Transfer Order POS</h1>
             <div id="auth-status">
                 <button id="login-btn" onclick="login()">Connect to Zoho</button>
-                <button id="manual-code-btn" onclick="showManualCodeInput()" style="display: none;">Enter Code Manually</button>
                 <button id="sync-btn" onclick="syncData()" style="display: none;">Sync Data</button>
                 <span id="status-text"></span>
             </div>
@@ -103,32 +102,6 @@
                         <div id="cart-items"></div>
                         <button id="create-transfer-btn" onclick="createTransferOrder()">Create Transfer Order</button>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Manual Code Input Popup -->
-        <div id="code-popup" class="popup" style="display: none;">
-            <div class="popup-content">
-                <h3>Enter Authorization Code</h3>
-                <p>If you were redirected to httpbin.org, copy the 'code' value from the URL and paste it here:</p>
-                <input type="text" id="auth-code-input" placeholder="Paste authorization code here..." style="width: 100%; padding: 10px; margin: 10px 0;">
-                <div class="popup-buttons">
-                    <button onclick="submitAuthCode()">Submit Code</button>
-                    <button onclick="closeCodePopup()">Cancel</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Custom Scope Popup -->
-        <div id="scope-popup" class="popup" style="display: none;">
-            <div class="popup-content">
-                <h3>Custom OAuth Scope</h3>
-                <p>Enter the correct OAuth scope for Zoho Inventory SA:</p>
-                <input type="text" id="custom-scope-input" placeholder="e.g., ZohoInventory.fullaccess.ALL" value="ZohoInventory.fullaccess.all" style="width: 100%; padding: 10px; margin: 10px 0;">
-                <div class="popup-buttons">
-                    <button onclick="loginWithCustomScope()">Login with Custom Scope</button>
-                    <button onclick="closeScopePopup()">Cancel</button>
                 </div>
             </div>
         </div>

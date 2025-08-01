@@ -53,6 +53,13 @@ async function checkAuthStatus() {
         if (data.authenticated) {
             showMainContent();
             loadData();
+        } else {
+            // Auto-authenticate if not authenticated
+            console.log('Not authenticated, auto-connecting to Zoho...');
+            document.getElementById('status-text').textContent = 'Auto-connecting to Zoho...';
+            setTimeout(() => {
+                login();
+            }, 1000); // Small delay to let UI load
         }
     } catch (error) {
         console.error('Error checking auth status:', error);

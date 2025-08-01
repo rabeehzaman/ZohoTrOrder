@@ -428,7 +428,8 @@ app.post('/api/transfer-orders', async (req, res) => {
             line_items: req.body.line_items.map(item => ({
                 item_id: String(item.item_id),
                 name: itemMap[item.item_id] || `Item ${item.item_id}`,
-                quantity_transfer: Number(item.quantity_transfer)
+                quantity_transfer: Number(item.quantity_transfer),
+                unit: item.unit || "qty"
             }))
         };
         

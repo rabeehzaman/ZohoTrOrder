@@ -422,14 +422,13 @@ app.post('/api/transfer-orders', async (req, res) => {
         
         // Use correct field names as per Zoho API documentation
         const transferOrderData = {
-            date: req.body.date,
-            from_location_id: String(req.body.from_location_id),
-            to_location_id: String(req.body.to_location_id),
+            from_warehouse_id: String(req.body.from_location_id),
+            to_warehouse_id: String(req.body.to_location_id),
+            transfer_order_number: `TO-${Date.now()}`,
+            date: req.body.date || new Date().toISOString().split('T')[0],
             line_items: req.body.line_items.map(item => ({
                 item_id: String(item.item_id),
-                name: itemMap[item.item_id] || `Item ${item.item_id}`, // Include required name field
-                quantity_transfer: Number(item.quantity_transfer),
-                unit: "qty"
+                quantity_transfer: Number(item.quantity_transfer)
             }))
         };
         

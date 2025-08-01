@@ -434,6 +434,16 @@ app.post('/api/transfer-orders', async (req, res) => {
         
         console.log(`Completed item fetching: ${totalItemsFetched} total items loaded`);
         
+        // Validate all items exist in itemMap before creating transfer order
+        for (const item of req.body.line_items) {
+            if (!itemMap[item.item_id]) {
+                return res.status(400).json({
+                    error: `Item ${item.item_id} not found in inventory`,
+                    details: `This item is not available in the current inventory list. Please refresh and try again.`
+                });
+            }
+        }
+        
         // Use correct field names as per Zoho API documentation
         const transferOrderData = {
             from_warehouse_id: String(req.body.from_location_id),
@@ -441,9 +451,9 @@ app.post('/api/transfer-orders', async (req, res) => {
             date: req.body.date || new Date().toISOString().split('T')[0],
             line_items: req.body.line_items.map(item => ({
                 item_id: String(item.item_id),
-                name: itemMap[item.item_id] || `Item ${item.item_id}`,
+                name: itemMap[item.item_id], // No fallback - we've already validated it exists
                 quantity_transfer: Number(item.quantity_transfer),
-                unit: item.unit || "qty"
+                unit: "qty" // Always use qty since it works universally
             }))
         };
         

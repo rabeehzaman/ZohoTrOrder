@@ -265,6 +265,9 @@ function selectProduct(itemId) {
         const quantityInput = document.getElementById('quantity-input');
         quantityInput.focus();
         quantityInput.select();
+        
+        // Setup popup keyboard navigation
+        setupPopupNavigation();
     }, 100);
 }
 
@@ -316,9 +319,13 @@ function setupKeyboardNavigation() {
     let selectedProductIndex = -1;
     const searchInput = document.getElementById('search-input');
     
+    // Enhanced Tab navigation setup
+    setupTabNavigation();
+    
     document.addEventListener('keydown', function(e) {
-        // Global keyboard shortcuts
+        // Global keyboard shortcuts (except when in input fields)
         if (e.target.tagName === 'INPUT' && e.target.id !== 'search-input') return;
+        if (e.target.tagName === 'SELECT') return;
         
         const resultsDiv = document.getElementById('search-results');
         const productItems = resultsDiv.querySelectorAll('.product-item');
@@ -347,6 +354,8 @@ function setupKeyboardNavigation() {
                     selectProduct(itemId);
                 } else if (document.getElementById('quantity-popup').style.display === 'flex') {
                     addToCart();
+                } else if (e.target.id === 'create-transfer-btn') {
+                    createTransferOrder();
                 }
                 break;
                 
@@ -355,21 +364,6 @@ function setupKeyboardNavigation() {
                 closePopup();
                 selectedProductIndex = -1;
                 updateSelectedProduct(productItems, -1);
-                break;
-                
-            case 'Tab':
-                if (document.getElementById('quantity-popup').style.display === 'flex') {
-                    e.preventDefault();
-                    // Toggle between pieces and cartons
-                    const piecesRadio = document.getElementById('unit-pieces');
-                    const cartonsRadio = document.getElementById('unit-cartons');
-                    if (piecesRadio.checked && !cartonsRadio.disabled) {
-                        cartonsRadio.checked = true;
-                    } else {
-                        piecesRadio.checked = true;
-                    }
-                    updateCalculatedQuantity();
-                }
                 break;
                 
             case 'F2':
@@ -393,6 +387,119 @@ function setupKeyboardNavigation() {
             e.preventDefault();
             closePopup();
         }
+    });
+}
+
+function setupTabNavigation() {
+    const searchInput = document.getElementById('search-input');
+    const fromWarehouse = document.getElementById('from-warehouse');
+    const toWarehouse = document.getElementById('to-warehouse');
+    const createTransferBtn = document.getElementById('create-transfer-btn');
+    
+    // Tab order: search → from-warehouse → to-warehouse → create-transfer-btn → search
+    const tabOrder = [searchInput, fromWarehouse, toWarehouse, createTransferBtn];
+    
+    tabOrder.forEach((element, index) => {
+        element.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const nextIndex = (index + 1) % tabOrder.length;
+                const nextElement = tabOrder[nextIndex];
+                
+                // Auto-open dropdown for select elements
+                if (nextElement.tagName === 'SELECT') {
+                    nextElement.focus();
+                    // Trigger click to open dropdown (browser dependent)
+                    setTimeout(() => {
+                        if (nextElement.click) nextElement.click();
+                    }, 50);
+                } else {
+                    nextElement.focus();
+                }
+            }
+        });
+    });
+    
+    // Special handling for warehouse dropdowns
+    fromWarehouse.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            toWarehouse.focus();
+            setTimeout(() => {
+                if (toWarehouse.click) toWarehouse.click();
+            }, 50);
+        }
+    });
+    
+    toWarehouse.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+    
+    // Create Transfer Order button keyboard handling
+    createTransferBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            createTransferOrder();
+        }
+    });
+}
+
+function setupPopupNavigation() {
+    const quantityInput = document.getElementById('quantity-input');
+    const piecesRadio = document.getElementById('unit-pieces');
+    const cartonsRadio = document.getElementById('unit-cartons');
+    
+    // Remove any existing event listeners to avoid duplicates
+    const newQuantityInput = quantityInput.cloneNode(true);
+    quantityInput.parentNode.replaceChild(newQuantityInput, quantityInput);
+    
+    // Tab navigation within popup: quantity → unit selection → quantity
+    newQuantityInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            // Focus on the checked radio button
+            const checkedRadio = document.querySelector('input[name="unit"]:checked');
+            if (checkedRadio) {
+                checkedRadio.focus();
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            addToCart();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closePopup();
+        }
+    });
+    
+    // Radio button navigation
+    [piecesRadio, cartonsRadio].forEach(radio => {
+        radio.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                newQuantityInput.focus();
+                newQuantityInput.select();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                addToCart();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closePopup();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                // Toggle between pieces and cartons
+                if (this.id === 'unit-pieces' && !cartonsRadio.disabled) {
+                    cartonsRadio.checked = true;
+                    cartonsRadio.focus();
+                } else if (this.id === 'unit-cartons') {
+                    piecesRadio.checked = true;
+                    piecesRadio.focus();
+                }
+                updateCalculatedQuantity();
+            }
+        });
     });
 }
 
@@ -454,6 +561,11 @@ function addToCart() {
     
     updateCartDisplay();
     closePopup();
+    
+    // Return focus to search input for next item
+    setTimeout(() => {
+        document.getElementById('search-input').focus();
+    }, 100);
 }
 
 function updateCartDisplay() {

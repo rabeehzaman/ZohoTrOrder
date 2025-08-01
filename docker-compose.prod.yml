@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  transfer-order-pos:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: transfer-order-pos-prod
+    ports:
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

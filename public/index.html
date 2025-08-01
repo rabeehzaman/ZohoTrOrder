@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="cache-buster" content="172500">
+    <title>Transfer Order POS</title>
+    <link rel="stylesheet" href="styles.css?v=172500">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Transfer Order POS</h1>
+            <div id="auth-status">
+                <button id="login-btn" onclick="login()">Connect to Zoho</button>
+                <button id="manual-code-btn" onclick="showManualCodeInput()" style="display: none;">Enter Code Manually</button>
+                <button id="custom-scope-btn" onclick="showCustomScopeInput()" style="display: none;">Custom Scope</button>
+                <button id="logout-btn" onclick="logout()" style="display: none;">Disconnect</button>
+                <button id="sync-btn" onclick="syncData()" style="display: none;">Sync Data</button>
+                <span id="status-text"></span>
+            </div>
+        </header>
+
+        <div id="main-content" style="display: none;">
+            <!-- Sync Status -->
+            <div id="sync-status" class="sync-status">
+                <p>Items synced: <span id="items-count">0</span></p>
+                <p>Warehouses loaded: <span id="warehouses-count">0</span></p>
+            </div>
+
+            <!-- Warehouse Selection -->
+            <div class="warehouse-selection">
+                <div class="warehouse-group">
+                    <label>From Warehouse:</label>
+                    <select id="from-warehouse">
+                        <option value="">Select warehouse...</option>
+                    </select>
+                </div>
+                <div class="warehouse-group">
+                    <label>To Warehouse:</label>
+                    <select id="to-warehouse">
+                        <option value="">Select warehouse...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Start typing to search products by name or SKU..." />
+                <button onclick="searchProducts()">Search</button>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results"></div>
+
+            <!-- Cart -->
+            <div id="cart-section">
+                <h2>Transfer Order Items</h2>
+                <div id="cart-items"></div>
+                <button id="create-transfer-btn" onclick="createTransferOrder()">Create Transfer Order</button>
+            </div>
+        </div>
+
+        <!-- Manual Code Input Popup -->
+        <div id="code-popup" class="popup" style="display: none;">
+            <div class="popup-content">
+                <h3>Enter Authorization Code</h3>
+                <p>If you were redirected to httpbin.org, copy the 'code' value from the URL and paste it here:</p>
+                <input type="text" id="auth-code-input" placeholder="Paste authorization code here..." style="width: 100%; padding: 10px; margin: 10px 0;">
+                <div class="popup-buttons">
+                    <button onclick="submitAuthCode()">Submit Code</button>
+                    <button onclick="closeCodePopup()">Cancel</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Custom Scope Popup -->
+        <div id="scope-popup" class="popup" style="display: none;">
+            <div class="popup-content">
+                <h3>Custom OAuth Scope</h3>
+                <p>Enter the correct OAuth scope for Zoho Inventory SA:</p>
+                <input type="text" id="custom-scope-input" placeholder="e.g., ZohoInventory.fullaccess.ALL" value="ZohoInventory.fullaccess.all" style="width: 100%; padding: 10px; margin: 10px 0;">
+                <div class="popup-buttons">
+                    <button onclick="loginWithCustomScope()">Login with Custom Scope</button>
+                    <button onclick="closeScopePopup()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quantity Popup -->
+        <div id="quantity-popup" class="popup" style="display: none;">
+            <div class="popup-content">
+                <h3 id="popup-product-name"></h3>
+                <div class="unit-selection">
+                    <input type="radio" id="unit-pieces" name="unit" value="pieces" checked>
+                    <label for="unit-pieces">Pieces</label>
+                    <input type="radio" id="unit-cartons" name="unit" value="cartons">
+                    <label for="unit-cartons">Cartons (<span id="carton-info"></span>)</label>
+                </div>
+                <div class="quantity-input">
+                    <label>Quantity:</label>
+                    <input type="number" id="quantity-input" min="1" value="1">
+                </div>
+                <div class="calculated-quantity">
+                    <p>Equivalent: <span id="calculated-qty">1</span></p>
+                </div>
+                <div class="popup-buttons">
+                    <button onclick="addToCart()">Add to Cart</button>
+                    <button onclick="closePopup()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app-new.js?v=172600"></script>
+</body>
+</html>

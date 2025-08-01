@@ -249,11 +249,30 @@ app.get('/api/items', async (req, res) => {
         
         console.log('All items fetched successfully:', allItems.length);
         
+        // Debug: Check item types
+        const itemTypes = {};
+        allItems.forEach(item => {
+            const type = item.item_type || 'undefined';
+            itemTypes[type] = (itemTypes[type] || 0) + 1;
+        });
+        console.log('Item types found:', itemTypes);
+        
+        // Filter only inventory items (exclude services, non-inventory items)
+        const inventoryItems = allItems.filter(item => {
+            // Filter criteria for inventory items
+            return item.item_type === 'inventory' && 
+                   item.status === 'active' && 
+                   item.is_returnable !== false &&
+                   !item.is_combo_product;
+        });
+        
+        console.log(`Filtered to ${inventoryItems.length} inventory items from ${allItems.length} total items`);
+        
         // Return in the same format as original response
         res.json({
             code: 0,
             message: 'success',
-            items: allItems
+            items: inventoryItems
         });
     } catch (error) {
         console.error('Error fetching items:', error.response?.data || error.message);
@@ -385,11 +404,24 @@ app.post('/api/transfer-orders', async (req, res) => {
         date: req.body.date,
         from_warehouse_id: String(req.body.from_location_id), // Use from_warehouse_id field name
         to_warehouse_id: String(req.body.to_location_id), // Use to_warehouse_id field name
-        line_items: req.body.line_items.map(item => ({
-            item_id: String(item.item_id), // Ensure item_id is a string
-            name: item.name, // Include item name
-            quantity_transfer: Number(item.quantity_transfer) // Ensure quantity is a number
-        }))
+        line_items: req.body.line_items.map(item => {
+            const lineItem = {
+                item_id: String(item.item_id), // Ensure item_id is a string
+                quantity_transfer: Number(item.quantity_transfer) // Ensure quantity is a number
+            };
+            
+            // Only include name if it exists
+            if (item.name) {
+                lineItem.name = item.name;
+            }
+            
+            // Add unit if available
+            if (item.unit) {
+                lineItem.unit = item.unit;
+            }
+            
+            return lineItem;
+        })
     };
     
     console.log('Formatted transfer order data:', JSON.stringify(transferOrderData, null, 2));

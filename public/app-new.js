@@ -68,6 +68,35 @@ function hideLoadingState() {
     currentLoadingState = LoadingStates.READY;
 }
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('Service Worker registered successfully:', registration.scope);
+            })
+            .catch((error) => {
+                console.log('Service Worker registration failed:', error);
+            });
+    });
+}
+
+// PWA Installation
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('PWA install prompt triggered');
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show custom install prompt if desired
+    // showInstallPrompt();
+});
+
+window.addEventListener('appinstalled', (evt) => {
+    console.log('PWA was installed');
+    deferredPrompt = null;
+});
+
 // Check if we have auth code or status in URL
 window.onload = async function() {
     // Start with connecting state

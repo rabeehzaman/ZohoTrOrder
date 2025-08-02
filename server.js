@@ -64,10 +64,15 @@ function loadTokens() {
         if (process.env.ZOHO_ACCESS_TOKEN && process.env.ZOHO_REFRESH_TOKEN) {
             accessToken = process.env.ZOHO_ACCESS_TOKEN;
             refreshToken = process.env.ZOHO_REFRESH_TOKEN;
-            // Set expiry to 1 hour from now if not specified
-            tokenExpiresAt = Date.now() + (3600 * 1000);
+            // Load expiry time if available, otherwise set to 1 hour from now
+            tokenExpiresAt = process.env.ZOHO_TOKEN_EXPIRES_AT 
+                ? parseInt(process.env.ZOHO_TOKEN_EXPIRES_AT) 
+                : Date.now() + (3600 * 1000);
             console.log('📦 Loaded tokens from environment variables (container mode)');
-            console.log('⚠️  Token persistence disabled - tokens will refresh automatically');
+            if (tokenExpiresAt) {
+                const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
+                console.log(`Token expires in ${expiresIn} seconds`);
+            }
         } else {
             console.log('ℹ️  No saved tokens found - authentication required');
         }
@@ -117,12 +122,101 @@ function clearTokens() {
     }
 }
 
+// Update Railway environment variables if API token is available
+async function updateRailwayEnvVars() {
+    // Only run if we have Railway API token and service ID
+    if (!process.env.RAILWAY_API_TOKEN || !process.env.RAILWAY_SERVICE_ID) {
+        return;
+    }
+    
+    try {
+        console.log('🚂 Updating Railway environment variables...');
+        
+        const query = `
+            mutation UpdateServiceVariables($serviceId: String!, $variables: [ServiceVariableInput!]!) {
+                variableCollectionUpsert(
+                    input: {
+                        serviceId: $serviceId
+                        variables: $variables
+                    }
+                )
+            }
+        `;
+        
+        const variables = {
+            serviceId: process.env.RAILWAY_SERVICE_ID,
+            variables: [
+                { name: 'ZOHO_ACCESS_TOKEN', value: accessToken },
+                { name: 'ZOHO_REFRESH_TOKEN', value: refreshToken },
+                { name: 'ZOHO_TOKEN_EXPIRES_AT', value: tokenExpiresAt.toString() }
+            ]
+        };
+        
+        await axios.post('https://backboard.railway.app/graphql/v2', {
+            query,
+            variables
+        }, {
+            headers: {
+                'Authorization': `Bearer ${process.env.RAILWAY_API_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('✅ Railway environment variables updated');
+    } catch (error) {
+        console.error('⚠️  Failed to update Railway env vars:', error.message);
+        // Don't throw - this is optional functionality
+    }
+}
+
 // Load tokens on startup
 loadTokens();
+
+// Refresh tokens on startup if they're expired or about to expire
+async function refreshTokensOnStartup() {
+    // Wait a moment for tokens to load
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (!accessToken || !refreshToken) {
+        console.log('⏭️  Skipping startup token refresh - no tokens available');
+        return;
+    }
+    
+    try {
+        // Check if token is expired or expires in next 10 minutes
+        if (!tokenExpiresAt || Date.now() + (10 * 60 * 1000) >= tokenExpiresAt) {
+            console.log('🔄 Refreshing tokens on startup...');
+            await refreshAccessToken();
+        } else {
+            const expiresIn = Math.floor((tokenExpiresAt - Date.now()) / 1000);
+            console.log(`✅ Token still valid for ${expiresIn} seconds`);
+        }
+    } catch (error) {
+        console.error('⚠️  Startup token refresh failed:', error.message);
+        // Don't crash - user can still authenticate manually
+    }
+}
+
+// Schedule token refresh on startup
+refreshTokensOnStartup();
 
 // Zoho OAuth endpoints
 const ZOHO_ACCOUNTS_URL = 'https://accounts.zoho.sa';
 const ZOHO_API_URL = 'https://www.zohoapis.sa/inventory/v1';
+
+// Dynamic redirect URI based on environment
+function getRedirectUri() {
+    // Railway provides RAILWAY_PUBLIC_DOMAIN for the app URL
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/auth/callback`;
+    }
+    // Use environment variable if explicitly set
+    if (process.env.ZOHO_REDIRECT_URI) {
+        return process.env.ZOHO_REDIRECT_URI;
+    }
+    // Default to localhost for development
+    return 'http://localhost:3000/auth/callback';
+}
 
 // Check authentication status
 app.get('/auth/status', (req, res) => {
@@ -156,7 +250,7 @@ app.get('/auth/login', (req, res) => {
         `scope=ZohoInventory.fullaccess.all` +
         `&client_id=${process.env.ZOHO_CLIENT_ID}` +
         `&response_type=code` +
-        `&redirect_uri=${encodeURIComponent(process.env.ZOHO_REDIRECT_URI)}` +
+        `&redirect_uri=${encodeURIComponent(getRedirectUri())}` +
         `&access_type=offline`;
     
     res.json({ authUrl });
@@ -173,7 +267,7 @@ app.post('/auth/login', (req, res) => {
         `scope=${encodeURIComponent(scope)}` +
         `&client_id=${process.env.ZOHO_CLIENT_ID}` +
         `&response_type=code` +
-        `&redirect_uri=${process.env.ZOHO_REDIRECT_URI}` +
+        `&redirect_uri=${getRedirectUri()}` +
         `&access_type=offline`;
     
     res.json({ authUrl });
@@ -193,7 +287,7 @@ app.get('/auth/callback', async (req, res) => {
                 grant_type: 'authorization_code',
                 client_id: process.env.ZOHO_CLIENT_ID,
                 client_secret: process.env.ZOHO_CLIENT_SECRET,
-                redirect_uri: process.env.ZOHO_REDIRECT_URI,
+                redirect_uri: getRedirectUri(),
                 code: code
             }
         });
@@ -201,7 +295,10 @@ app.get('/auth/callback', async (req, res) => {
         accessToken = tokenResponse.data.access_token;
         refreshToken = tokenResponse.data.refresh_token;
         tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
+        
+        // Save tokens to file and attempt to update Railway env vars
         saveTokens();
+        await updateRailwayEnvVars();
         
         // Redirect to main app with success message
         res.redirect('/?auth=success');
@@ -218,7 +315,7 @@ app.post('/auth/token', async (req, res) => {
     console.log('Attempting to exchange code for token...');
     console.log('Code:', code);
     console.log('Client ID:', process.env.ZOHO_CLIENT_ID);
-    console.log('Redirect URI:', process.env.ZOHO_REDIRECT_URI);
+    console.log('Redirect URI:', getRedirectUri());
     
     try {
         const tokenResponse = await axios.post(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`, null, {
@@ -226,7 +323,7 @@ app.post('/auth/token', async (req, res) => {
                 grant_type: 'authorization_code',
                 client_id: process.env.ZOHO_CLIENT_ID,
                 client_secret: process.env.ZOHO_CLIENT_SECRET,
-                redirect_uri: process.env.ZOHO_REDIRECT_URI,
+                redirect_uri: getRedirectUri(),
                 code: code
             }
         });
@@ -235,7 +332,10 @@ app.post('/auth/token', async (req, res) => {
         accessToken = tokenResponse.data.access_token;
         refreshToken = tokenResponse.data.refresh_token;
         tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
+        
+        // Save tokens to file and attempt to update Railway env vars
         saveTokens();
+        await updateRailwayEnvVars();
         
         res.json({ success: true, message: 'Authentication successful' });
     } catch (error) {
@@ -263,6 +363,7 @@ async function refreshAccessToken() {
         accessToken = response.data.access_token;
         tokenExpiresAt = Date.now() + (response.data.expires_in * 1000 || 3600 * 1000);
         saveTokens();
+        await updateRailwayEnvVars();
         console.log('✅ Access token refreshed successfully');
         return accessToken;
     } catch (error) {
@@ -744,6 +845,31 @@ app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
             details: error.response?.data || error.message
         });
     }
+});
+
+// Health check endpoint for Railway
+app.get('/health', (req, res) => {
+    const health = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.RAILWAY_ENVIRONMENT || 'local',
+        auth: {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken,
+            tokenValid: tokenExpiresAt ? Date.now() < tokenExpiresAt : false,
+            expiresIn: tokenExpiresAt ? Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000)) : null
+        },
+        config: {
+            redirectUri: getRedirectUri(),
+            hasClientId: !!process.env.ZOHO_CLIENT_ID,
+            hasClientSecret: !!process.env.ZOHO_CLIENT_SECRET,
+            hasOrgId: !!process.env.ZOHO_ORGANIZATION_ID,
+            railwayApiEnabled: !!(process.env.RAILWAY_API_TOKEN && process.env.RAILWAY_SERVICE_ID)
+        }
+    };
+    
+    res.json(health);
 });
 
 const PORT = process.env.PORT || 3000;

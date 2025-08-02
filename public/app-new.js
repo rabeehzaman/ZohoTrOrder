@@ -494,7 +494,7 @@ function updateCalculatedQuantity() {
             const containerAbbr = containerName === 'bags' ? 'BAG' : 
                                  containerName === 'cartons' ? 'CTN' : 
                                  containerName === 'dozens' ? 'DZN' : 'UNIT';
-            displayText = `${containers.toFixed(3)} ${containerAbbr}`;
+            displayText = `${containers.toFixed(4)} ${containerAbbr}`;
             console.log('DEBUG: Converting pieces to containers', { quantity, piecesPerContainer, containers, containerName });
         } else {
             // When containers selected, show equivalent pieces  
@@ -755,8 +755,8 @@ function addToCart() {
             // Convert pieces to containers for Zoho (pieces ÷ pieces per container = containers)
             transferQuantity = roundQuantity(quantity / piecesPerCarton);
             const containerName = getContainerName(currentProduct.unit);
-            displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} ${containerName})`;
-            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} ${containerName})`;
+            displayText = `${quantity} pieces (${transferQuantity.toFixed(4)} ${containerName})`;
+            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(4)} ${containerName})`;
             console.log('DEBUG: addToCart pieces to containers', { quantity, piecesPerCarton, transferQuantity, containerName });
             console.log('DEBUG: Setting description:', itemDescription);
         } else {

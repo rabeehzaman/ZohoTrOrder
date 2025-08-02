@@ -801,9 +801,9 @@ app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
 
 // Display tokens for manual Railway setup
 app.get('/auth/tokens', (req, res) => {
-    if (!accessToken || !refreshToken) {
+    if (!accessToken) {
         return res.status(401).json({
-            error: 'No tokens available. Please authenticate first.'
+            error: 'No access token available. Please authenticate first.'
         });
     }
     
@@ -831,6 +831,12 @@ app.get('/auth/tokens', (req, res) => {
                     <strong>⚠️ Security Notice:</strong> These tokens are sensitive. Only use this page for initial Railway setup, then close it immediately.
                 </div>
                 
+                ${!refreshToken ? `
+                <div class="warning">
+                    <strong>⚠️ Missing Refresh Token:</strong> Your OAuth flow didn't return a refresh token. This might be due to Zoho app configuration. You can still use the access token, but it will expire in ~1 hour.
+                </div>
+                ` : ''}
+                
                 <div class="instructions">
                     <h2>Instructions:</h2>
                     <ol>
@@ -850,11 +856,18 @@ app.get('/auth/tokens', (req, res) => {
                     <button onclick="copyToClipboard('access-token', this)">Copy</button>
                 </div>
                 
+                ${refreshToken ? `
                 <div class="env-var">
                     <strong>ZOHO_REFRESH_TOKEN</strong><br>
                     <span id="refresh-token">${refreshToken}</span>
                     <button onclick="copyToClipboard('refresh-token', this)">Copy</button>
                 </div>
+                ` : `
+                <div class="env-var" style="background: #ffebee;">
+                    <strong>ZOHO_REFRESH_TOKEN</strong><br>
+                    <span style="color: #d32f2f;">❌ Not available - Check Zoho OAuth app configuration</span>
+                </div>
+                `}
                 
                 <div class="env-var">
                     <strong>ZOHO_TOKEN_EXPIRES_AT</strong><br>

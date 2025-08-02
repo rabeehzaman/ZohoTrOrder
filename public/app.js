@@ -302,7 +302,9 @@ function addToCart() {
         existingItem.displayText = displayText;
         if (itemDescription) {
             existingItem.description = itemDescription;
+            console.log('Setting description on existing item:', itemDescription);
         }
+        console.log('Updated existing cart item:', existingItem);
     } else {
         const cartItem = {
             item_id: currentProduct.item_id,
@@ -314,8 +316,10 @@ function addToCart() {
         
         if (itemDescription) {
             cartItem.description = itemDescription;
+            console.log('Setting description on cart item:', itemDescription);
         }
         
+        console.log('Cart item being added:', cartItem);
         cart.push(cartItem);
     }
     
@@ -467,7 +471,8 @@ async function createTransferOrder() {
         })
     };
     
-    console.log('Transfer order data:', transferOrder);
+    console.log('Cart before creating transfer order:', cart);
+    console.log('Transfer order data being sent:', transferOrder);
     
     try {
         const response = await fetch('/api/transfer-orders', {

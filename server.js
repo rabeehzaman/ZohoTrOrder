@@ -16,6 +16,7 @@ const tokenFile = path.join(__dirname, 'tokens.json');
 
 let accessToken = null;
 let refreshToken = null;
+let tokenExpiresAt = null;
 
 // Load tokens from file on startup
 function loadTokens() {
@@ -26,7 +27,12 @@ function loadTokens() {
                 const tokens = JSON.parse(fileContent);
                 accessToken = tokens.accessToken;
                 refreshToken = tokens.refreshToken;
+                tokenExpiresAt = tokens.expiresAt || null;
                 console.log('Loaded saved tokens from file');
+                if (tokenExpiresAt) {
+                    const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
+                    console.log(`Token expires in ${expiresIn} seconds`);
+                }
             } else {
                 console.log('Tokens file is empty');
             }
@@ -42,10 +48,15 @@ function saveTokens() {
         const tokens = {
             accessToken,
             refreshToken,
+            expiresAt: tokenExpiresAt,
             savedAt: new Date().toISOString()
         };
         fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
         console.log('Tokens saved to file');
+        if (tokenExpiresAt) {
+            const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
+            console.log(`Token expires in ${expiresIn} seconds`);
+        }
     } catch (error) {
         console.error('Error saving tokens:', error);
     }
@@ -72,9 +83,17 @@ const ZOHO_API_URL = 'https://www.zohoapis.sa/inventory/v1';
 
 // Check authentication status
 app.get('/auth/status', (req, res) => {
+    const now = Date.now();
+    const expiresIn = tokenExpiresAt ? Math.max(0, Math.floor((tokenExpiresAt - now) / 1000)) : null;
+    const expiresInMinutes = expiresIn ? Math.floor(expiresIn / 60) : null;
+    
     res.json({ 
         authenticated: !!accessToken,
-        hasRefreshToken: !!refreshToken 
+        hasRefreshToken: !!refreshToken,
+        tokenExpiresIn: expiresIn,
+        tokenExpiresInMinutes: expiresInMinutes,
+        autoRefreshEnabled: true,
+        willRefreshIn: expiresIn ? Math.max(0, expiresIn - 300) : null // 5 minutes before expiry
     });
 });
 
@@ -83,6 +102,7 @@ app.post('/auth/logout', (req, res) => {
     console.log('Logging out - clearing tokens');
     accessToken = null;
     refreshToken = null;
+    tokenExpiresAt = null;
     clearTokens();
     res.json({ success: true, message: 'Logged out successfully' });
 });
@@ -137,6 +157,7 @@ app.get('/auth/callback', async (req, res) => {
         
         accessToken = tokenResponse.data.access_token;
         refreshToken = tokenResponse.data.refresh_token;
+        tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
         saveTokens();
         
         // Redirect to main app with success message
@@ -170,6 +191,7 @@ app.post('/auth/token', async (req, res) => {
         console.log('Token exchange successful!');
         accessToken = tokenResponse.data.access_token;
         refreshToken = tokenResponse.data.refresh_token;
+        tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
         saveTokens();
         
         res.json({ success: true, message: 'Authentication successful' });
@@ -185,6 +207,7 @@ app.post('/auth/token', async (req, res) => {
 // Refresh token when expired
 async function refreshAccessToken() {
     try {
+        console.log('🔄 Refreshing Zoho access token...');
         const response = await axios.post(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`, null, {
             params: {
                 grant_type: 'refresh_token',
@@ -195,11 +218,24 @@ async function refreshAccessToken() {
         });
         
         accessToken = response.data.access_token;
+        tokenExpiresAt = Date.now() + (response.data.expires_in * 1000 || 3600 * 1000);
         saveTokens();
+        console.log('✅ Access token refreshed successfully');
         return accessToken;
     } catch (error) {
-        console.error('Token refresh error:', error);
+        console.error('❌ Token refresh error:', error);
         throw error;
+    }
+}
+
+// Proactive token refresh - call before every API request
+async function ensureValidToken() {
+    // Refresh if token expires in the next 5 minutes
+    if (!tokenExpiresAt || Date.now() + (5 * 60 * 1000) >= tokenExpiresAt) {
+        if (!refreshToken) {
+            throw new Error('No refresh token available. Please login again.');
+        }
+        await refreshAccessToken();
     }
 }
 
@@ -210,6 +246,13 @@ app.get('/api/items', async (req, res) => {
     
     if (!accessToken) {
         return res.status(401).json({ error: 'Not authenticated. Please login first.' });
+    }
+    
+    try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
     }
     
     try {
@@ -278,31 +321,10 @@ app.get('/api/items', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching items:', error.response?.data || error.message);
-        
-        if (error.response?.status === 401) {
-            // Try refreshing token
-            try {
-                await refreshAccessToken();
-                // Retry request
-                const response = await axios.get(`${ZOHO_API_URL}/items`, {
-                    headers: {
-                        'Authorization': `Zoho-oauthtoken ${accessToken}`
-                    },
-                    params: {
-                        organization_id: process.env.ZOHO_ORGANIZATION_ID
-                    }
-                });
-                res.json(response.data);
-            } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError);
-                res.status(401).json({ error: 'Authentication failed. Please login again.' });
-            }
-        } else {
-            res.status(500).json({ 
-                error: 'Failed to fetch items',
-                details: error.response?.data || error.message 
-            });
-        }
+        res.status(500).json({ 
+            error: 'Failed to fetch items',
+            details: error.response?.data || error.message 
+        });
     }
 });
 
@@ -312,6 +334,13 @@ app.get('/api/locations', async (req, res) => {
     
     if (!accessToken) {
         return res.status(401).json({ error: 'Not authenticated. Please login first.' });
+    }
+    
+    try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
     }
     
     try {
@@ -399,6 +428,13 @@ app.get('/api/locations', async (req, res) => {
 // Create transfer order
 app.post('/api/transfer-orders', async (req, res) => {
     console.log('Creating transfer order with data:', JSON.stringify(req.body, null, 2));
+    
+    try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
+    }
     
     try {
         // Fetch all items using optimal per_page=1000 with pagination for remaining items
@@ -505,6 +541,13 @@ app.get('/test/locations', async (req, res) => {
     }
     
     try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
+    }
+    
+    try {
         let locResponse, whResponse;
         
         // Try both endpoints
@@ -582,6 +625,13 @@ app.get('/debug/locations', async (req, res) => {
     }
     
     try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
+    }
+    
+    try {
         const response = await axios.get(`${ZOHO_API_URL}/locations`, {
             headers: {
                 'Authorization': `Zoho-oauthtoken ${accessToken}`
@@ -614,6 +664,13 @@ app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
     }
     
     try {
+        await ensureValidToken();
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return res.status(401).json({ error: 'Authentication failed. Please login again.' });
+    }
+    
+    try {
         const response = await axios.get(
             `${ZOHO_API_URL}/transferorders/${req.params.id}`,
             {
@@ -639,39 +696,10 @@ app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
         
     } catch (error) {
         console.error('PDF download error:', error.response?.data || error.message);
-        
-        if (error.response?.status === 401) {
-            // Try refreshing token
-            try {
-                await refreshAccessToken();
-                // Retry request
-                const retryResponse = await axios.get(
-                    `${ZOHO_API_URL}/transferorders/${req.params.id}`,
-                    {
-                        headers: {
-                            'Authorization': `Zoho-oauthtoken ${accessToken}`,
-                            'Accept': 'application/pdf'
-                        },
-                        params: {
-                            organization_id: process.env.ZOHO_ORGANIZATION_ID
-                        },
-                        responseType: 'stream'
-                    }
-                );
-                
-                res.setHeader('Content-Type', 'application/pdf');
-                res.setHeader('Content-Disposition', `attachment; filename="TransferOrder-${req.params.id}.pdf"`);
-                retryResponse.data.pipe(res);
-            } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError);
-                res.status(401).json({ error: 'Authentication failed. Please login again.' });
-            }
-        } else {
-            res.status(500).json({ 
-                error: 'Failed to download PDF',
-                details: error.response?.data || error.message
-            });
-        }
+        res.status(500).json({ 
+            error: 'Failed to download PDF',
+            details: error.response?.data || error.message
+        });
     }
 });
 

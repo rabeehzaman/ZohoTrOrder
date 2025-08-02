@@ -106,27 +106,63 @@
             </div>
         </div>
 
-        <!-- Quantity Popup -->
-        <div id="quantity-popup" class="popup" style="display: none;">
-            <div class="popup-content">
-                <h3 id="popup-product-name"></h3>
-                <div class="dual-quantity-inputs">
-                    <div class="quantity-row">
-                        <label>Pieces:</label>
-                        <input type="number" id="pieces-input" min="0" value="0">
+        <!-- Modern Quantity Popup -->
+        <div id="quantity-popup" class="popup-overlay" style="display: none;">
+            <div class="popup-backdrop" onclick="closePopup()"></div>
+            <div class="popup-container">
+                <div class="popup-header">
+                    <h3 id="popup-product-name" class="popup-title"></h3>
+                    <button class="popup-close" onclick="closePopup()" aria-label="Close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="popup-body">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label class="input-label">
+                                <span class="label-text">Pieces</span>
+                                <span class="label-icon">📦</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="pieces-input" class="modern-input" min="0" value="0" placeholder="0">
+                                <div class="input-focus-ring"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="input-label">
+                                <span class="label-text">Cartons</span>
+                                <span class="label-icon">📋</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="cartons-input" class="modern-input" min="0" step="0.01" value="0" placeholder="0">
+                                <div class="input-focus-ring"></div>
+                            </div>
+                            <span id="carton-info" class="unit-hint"></span>
+                        </div>
                     </div>
-                    <div class="quantity-row">
-                        <label>Cartons:</label>
-                        <input type="number" id="cartons-input" min="0" step="0.01" value="0">
-                        <span id="carton-info" class="unit-info"></span>
+                    
+                    <div class="total-card">
+                        <div class="total-header">
+                            <span class="total-icon">🎯</span>
+                            <span class="total-label">Total Transfer</span>
+                        </div>
+                        <div class="total-value" id="total-quantity">0 cartons</div>
                     </div>
                 </div>
-                <div class="total-display">
-                    <p>Total: <span id="total-quantity">0</span> cartons</p>
-                </div>
-                <div class="popup-buttons">
-                    <button onclick="addToCart()">Add to Cart</button>
-                    <button onclick="closePopup()">Cancel</button>
+                
+                <div class="popup-footer">
+                    <button class="btn btn-secondary" onclick="closePopup()">
+                        <span>Cancel</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="addToCart()">
+                        <span class="btn-icon">➕</span>
+                        <span>Add to Cart</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -454,7 +454,7 @@ function selectProduct(itemId) {
     if (hasCartonInfo) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         const containerName = getContainerName(currentProduct.unit);
-        cartonInfo.textContent = `(${piecesPerCarton} pcs per ${containerName.slice(0, -1)})`;
+        cartonInfo.textContent = `${piecesPerCarton} pcs per ${containerName.slice(0, -1)}`;
         cartonsInput.disabled = false;
         cartonsInput.style.opacity = '1';
         cartonInfo.style.opacity = '1';
@@ -462,14 +462,17 @@ function selectProduct(itemId) {
         cartonsInput.disabled = true;
         cartonsInput.style.opacity = '0.5';
         cartonInfo.style.opacity = '0.5';
-        cartonInfo.textContent = '(no conversion available)';
+        cartonInfo.textContent = 'no conversion available';
     }
     
     // Reset input values
     piecesInput.value = 0;
     cartonsInput.value = 0;
     updateCalculatedQuantity();
-    document.getElementById('quantity-popup').style.display = 'flex';
+    const popup = document.getElementById('quantity-popup');
+    popup.style.display = 'flex';
+    // Force reflow to trigger CSS animation
+    popup.offsetHeight;
     
     // Focus on pieces input for immediate entry
     setTimeout(() => {
@@ -870,7 +873,8 @@ function removeFromCart(index) {
 }
 
 function closePopup() {
-    document.getElementById('quantity-popup').style.display = 'none';
+    const popup = document.getElementById('quantity-popup');
+    popup.style.display = 'none';
     document.getElementById('pieces-input').value = 0;
     document.getElementById('cartons-input').value = 0;
     currentProduct = null;

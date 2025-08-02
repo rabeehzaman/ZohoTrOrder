@@ -667,6 +667,7 @@ function addToCart() {
     
     let transferQuantity = quantity;
     let displayText = `${quantity} ${unit}`;
+    let itemDescription = '';
     
     if (currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
@@ -675,7 +676,9 @@ function addToCart() {
             // Convert pieces to cartons for Zoho (pieces ÷ pieces per carton = cartons)
             transferQuantity = quantity / piecesPerCarton;
             displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} cartons)`;
+            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} cartons)`;
             console.log('DEBUG: addToCart pieces to cartons', { quantity, piecesPerCarton, transferQuantity });
+            console.log('DEBUG: Setting description:', itemDescription);
         } else {
             // When cartons selected, keep as cartons for Zoho
             transferQuantity = quantity;
@@ -691,14 +694,26 @@ function addToCart() {
     if (existingItem) {
         existingItem.quantity_transfer += transferQuantity;
         existingItem.displayText = displayText;
+        if (itemDescription) {
+            existingItem.description = itemDescription;
+            console.log('DEBUG: Updated existing item description:', itemDescription);
+        }
     } else {
-        cart.push({
+        const cartItem = {
             item_id: currentProduct.item_id,
             name: currentProduct.name,
             quantity_transfer: transferQuantity,
             unit: currentProduct.unit || 'qty',
             displayText: displayText
-        });
+        };
+        
+        if (itemDescription) {
+            cartItem.description = itemDescription;
+            console.log('DEBUG: Added description to new cart item:', itemDescription);
+        }
+        
+        cart.push(cartItem);
+        console.log('DEBUG: Cart item added:', cartItem);
     }
     
     updateCartDisplay();
@@ -773,11 +788,24 @@ async function createTransferOrder() {
         date: new Date().toISOString().split('T')[0],
         from_location_id: String(fromWarehouse),
         to_location_id: String(toWarehouse),
-        line_items: cart.map(item => ({
-            item_id: item.item_id, // Keep as string to prevent precision loss
-            quantity_transfer: parseFloat(item.quantity_transfer)
-            // Note: Removed name and unit fields to avoid Zoho API issues
-        }))
+        line_items: cart.map(item => {
+            const lineItem = {
+                item_id: item.item_id, // Keep as string to prevent precision loss
+                name: item.name,
+                quantity_transfer: parseFloat(item.quantity_transfer),
+                unit: item.unit
+            };
+            
+            // Include description if it exists (piece conversion info)
+            if (item.description) {
+                lineItem.description = item.description;
+                console.log('DEBUG: Adding description to transfer order line item:', item.description);
+            } else {
+                console.log('DEBUG: No description found for item:', item.name);
+            }
+            
+            return lineItem;
+        })
     };
     
     console.log('Transfer order data:', transferOrder);

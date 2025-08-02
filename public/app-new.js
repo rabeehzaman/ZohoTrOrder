@@ -481,6 +481,9 @@ function selectProduct(itemId) {
         
         // Setup popup keyboard navigation
         setupPopupNavigation();
+        
+        // Add auto-select behavior for better UX
+        setupAutoSelectBehavior();
     }, 100);
 }
 
@@ -747,6 +750,48 @@ function setupPopupNavigation() {
             e.preventDefault();
             closePopup();
         }
+    });
+}
+
+function setupAutoSelectBehavior() {
+    const piecesInput = document.getElementById('pieces-input');
+    const cartonsInput = document.getElementById('cartons-input');
+    
+    // Auto-select text when clicking or focusing on input with "0"
+    function handleFocus(e) {
+        const input = e.target;
+        // If the value is "0", select all text so user can type immediately
+        if (input.value === '0') {
+            setTimeout(() => {
+                input.select();
+            }, 10);
+        }
+    }
+    
+    // Handle first number input to replace "0"
+    function handleInput(e) {
+        const input = e.target;
+        const value = input.value;
+        
+        // If user types a number while "0" is selected, it will naturally replace
+        // But if they have "0X" (typed after 0), clean it up
+        if (value.startsWith('0') && value.length > 1 && value !== '0.') {
+            // Remove leading zero unless it's a decimal
+            input.value = value.substring(1);
+            updateCalculatedQuantity();
+        }
+    }
+    
+    // Add event listeners
+    [piecesInput, cartonsInput].forEach(input => {
+        input.addEventListener('focus', handleFocus);
+        input.addEventListener('click', handleFocus);
+        input.addEventListener('input', handleInput);
+        
+        // Also handle mobile touch
+        input.addEventListener('touchstart', function(e) {
+            setTimeout(() => handleFocus(e), 50);
+        });
     });
 }
 

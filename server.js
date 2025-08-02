@@ -9,10 +9,25 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Store tokens persistently in file
+// Store tokens persistently in file (with fallback for containers)
 const fs = require('fs');
 const path = require('path');
-const tokenFile = path.join(__dirname, 'tokens.json');
+const os = require('os');
+
+// Try to use writable temp directory in containers, fallback to current directory
+let tokenFile;
+try {
+    // Test if current directory is writable
+    const testFile = path.join(__dirname, '.write-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    tokenFile = path.join(__dirname, 'tokens.json');
+    console.log('Using current directory for tokens file');
+} catch (error) {
+    // Use system temp directory if current directory is not writable
+    tokenFile = path.join(os.tmpdir(), 'zoho-tokens.json');
+    console.log('Using temp directory for tokens file:', tokenFile);
+}
 
 let accessToken = null;
 let refreshToken = null;
@@ -21,6 +36,7 @@ let tokenExpiresAt = null;
 // Load tokens from file on startup
 function loadTokens() {
     try {
+        // First try to load from file
         if (fs.existsSync(tokenFile)) {
             const fileContent = fs.readFileSync(tokenFile, 'utf8').trim();
             if (fileContent) {
@@ -28,14 +44,25 @@ function loadTokens() {
                 accessToken = tokens.accessToken;
                 refreshToken = tokens.refreshToken;
                 tokenExpiresAt = tokens.expiresAt || null;
-                console.log('Loaded saved tokens from file');
+                console.log('✅ Loaded saved tokens from file');
                 if (tokenExpiresAt) {
                     const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
                     console.log(`Token expires in ${expiresIn} seconds`);
                 }
-            } else {
-                console.log('Tokens file is empty');
+                return;
             }
+        }
+        
+        // Fallback: try to load from environment variables (for containers)
+        if (process.env.ZOHO_ACCESS_TOKEN && process.env.ZOHO_REFRESH_TOKEN) {
+            accessToken = process.env.ZOHO_ACCESS_TOKEN;
+            refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+            // Set expiry to 1 hour from now if not specified
+            tokenExpiresAt = Date.now() + (3600 * 1000);
+            console.log('📦 Loaded tokens from environment variables (container mode)');
+            console.log('⚠️  Token persistence disabled - tokens will refresh automatically');
+        } else {
+            console.log('ℹ️  No saved tokens found - authentication required');
         }
     } catch (error) {
         console.error('Error loading tokens:', error);
@@ -52,13 +79,15 @@ function saveTokens() {
             savedAt: new Date().toISOString()
         };
         fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
-        console.log('Tokens saved to file');
+        console.log('✅ Tokens saved to file:', tokenFile);
         if (tokenExpiresAt) {
             const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
             console.log(`Token expires in ${expiresIn} seconds`);
         }
     } catch (error) {
-        console.error('Error saving tokens:', error);
+        console.error('⚠️  Warning: Could not save tokens to file:', error.message);
+        console.log('📝 Tokens will remain in memory until container restart');
+        // Don't throw error - tokens still work in memory
     }
 }
 
@@ -67,10 +96,11 @@ function clearTokens() {
     try {
         if (fs.existsSync(tokenFile)) {
             fs.unlinkSync(tokenFile);
-            console.log('Tokens file deleted');
+            console.log('✅ Tokens file deleted');
         }
     } catch (error) {
-        console.error('Error clearing tokens:', error);
+        console.error('⚠️  Warning: Could not delete tokens file:', error.message);
+        // Don't throw error - tokens are cleared from memory regardless
     }
 }
 

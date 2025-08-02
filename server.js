@@ -227,7 +227,7 @@ app.get('/api/items', async (req, res) => {
                 },
                 params: {
                     organization_id: process.env.ZOHO_ORGANIZATION_ID,
-                    per_page: 200,  // Zoho's max per page
+                    per_page: 1000,  // Zoho's actual max per page (optimized for faster loading)
                     page: page
                 }
             });
@@ -237,7 +237,7 @@ app.get('/api/items', async (req, res) => {
                 console.log(`Page ${page}: ${response.data.items.length} items, Total: ${allItems.length}`);
                 
                 // Check if there are more pages
-                if (response.data.items.length < 200) {
+                if (response.data.items.length < 1000) {
                     hasMorePages = false;
                 } else {
                     page++;

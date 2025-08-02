@@ -438,12 +438,21 @@ async function createTransferOrder() {
         date: new Date().toISOString().split('T')[0],
         from_location_id: String(fromWarehouse),
         to_location_id: String(toWarehouse),
-        line_items: cart.map(item => ({
-            item_id: item.item_id, // Keep as string to prevent precision loss
-            name: item.name,
-            quantity_transfer: parseFloat(item.quantity_transfer),
-            unit: item.unit
-        }))
+        line_items: cart.map(item => {
+            const lineItem = {
+                item_id: item.item_id, // Keep as string to prevent precision loss
+                name: item.name,
+                quantity_transfer: parseFloat(item.quantity_transfer),
+                unit: item.unit
+            };
+            
+            // Include description if it exists (piece conversion info)
+            if (item.description) {
+                lineItem.description = item.description;
+            }
+            
+            return lineItem;
+        })
     };
     
     console.log('Transfer order data:', transferOrder);

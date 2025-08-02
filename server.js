@@ -41,15 +41,22 @@ function loadTokens() {
             const fileContent = fs.readFileSync(tokenFile, 'utf8').trim();
             if (fileContent) {
                 const tokens = JSON.parse(fileContent);
-                accessToken = tokens.accessToken;
-                refreshToken = tokens.refreshToken;
-                tokenExpiresAt = tokens.expiresAt || null;
-                console.log('✅ Loaded saved tokens from file');
-                if (tokenExpiresAt) {
-                    const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
-                    console.log(`Token expires in ${expiresIn} seconds`);
+                
+                // Validate that all required tokens exist
+                if (tokens.accessToken && tokens.refreshToken) {
+                    accessToken = tokens.accessToken;
+                    refreshToken = tokens.refreshToken;
+                    tokenExpiresAt = tokens.expiresAt || null;
+                    console.log('✅ Loaded saved tokens from file');
+                    if (tokenExpiresAt) {
+                        const expiresIn = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
+                        console.log(`Token expires in ${expiresIn} seconds`);
+                    }
+                    return;
+                } else {
+                    console.log('⚠️ Incomplete tokens found in file, clearing corrupted data');
+                    clearTokens();
                 }
-                return;
             }
         }
         
@@ -72,6 +79,12 @@ function loadTokens() {
 // Save tokens to file
 function saveTokens() {
     try {
+        // Only save if we have valid tokens
+        if (!accessToken || !refreshToken) {
+            console.log('⚠️ Skipping save - missing required tokens');
+            return;
+        }
+        
         const tokens = {
             accessToken,
             refreshToken,

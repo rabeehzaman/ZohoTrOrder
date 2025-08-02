@@ -348,21 +348,90 @@ function searchProductsWithDelay() {
 }
 
 function parseUnitInfo(unit) {
-    // Parse C24PCS or C24P format from unit field
-    const match = unit.match(/C(\d+)P(CS)?/i);
-    if (match) {
-        return `1 Carton = ${match[1]} Pieces`;
-    }
-    return '';
+    if (!hasUnitConversion(unit)) return '';
+    
+    const unitsPerContainer = getUnitsPerContainer(unit);
+    const containerName = getContainerName(unit);
+    
+    // Capitalize first letter of container name
+    const capitalizedContainer = containerName.charAt(0).toUpperCase() + containerName.slice(1, -1);
+    
+    return `1 ${capitalizedContainer} = ${unitsPerContainer} Pieces`;
 }
 
 function hasUnitConversion(unit) {
-    return /C\d+P(CS)?/i.test(unit);
+    if (!unit) return false;
+    
+    // Pattern 1: C##P format (existing: C12P, C24P, etc.)
+    if (/C\d+P(CS)?/i.test(unit)) return true;
+    
+    // Pattern 2: UNIT(number) format (BAG(8), CTN(144), etc.)
+    // Also includes C3(RPT) style patterns
+    if (/\w+\(\d+\w*\)/i.test(unit)) return true;
+    
+    // Pattern 3: C## format without P (C54, C2, etc.)
+    if (/C\d+$/i.test(unit)) return true;
+    
+    // Pattern 4: Multi-part CTN format (CTN 6(10), CTN(4)10)
+    if (/CTN\s*\d+\(\d+\)|CTN\(\d+\)\d+/i.test(unit)) return true;
+    
+    // Pattern 5: CTN with P suffix (CTN(720P))
+    if (/CTN\(\d+P\)/i.test(unit)) return true;
+    
+    return false;
 }
 
+function getUnitsPerContainer(unit) {
+    if (!unit) return 1;
+    
+    // Pattern 1: C##P format (C12P, C24P → 12, 24)
+    let match = unit.match(/C(\d+)P(CS)?/i);
+    if (match) return parseInt(match[1]);
+    
+    // Pattern 2: UNIT(number) format (BAG(8), CTN(144) → 8, 144)
+    // Also handles C3(RPT) → 3 (ignore text after number)
+    // But skip multi-part patterns that should be handled later
+    if (!/CTN\s*\d+\(|\(\d+\)\d+/.test(unit)) {
+        match = unit.match(/\w+\((\d+)\w*\)/i);
+        if (match) return parseInt(match[1]);
+    }
+    
+    // Pattern 3: C## format without P (C54, C2 → 54, 2)
+    match = unit.match(/C(\d+)$/i);
+    if (match) return parseInt(match[1]);
+    
+    // Pattern 4: CTN 6(10) format (6×10 = 60)
+    match = unit.match(/CTN\s*(\d+)\((\d+)\)/i);
+    if (match) return parseInt(match[1]) * parseInt(match[2]);
+    
+    // Pattern 5: CTN(4)10 format (4×10 = 40)
+    match = unit.match(/CTN\((\d+)\)(\d+)/i);
+    if (match) return parseInt(match[1]) * parseInt(match[2]);
+    
+    // Pattern 6: CTN(720P) format (720)
+    match = unit.match(/CTN\((\d+)P\)/i);
+    if (match) return parseInt(match[1]);
+    
+    return 1;
+}
+
+function getContainerName(unit) {
+    if (!unit) return 'units';
+    
+    // Detect container type from unit name
+    if (/BAG|B\(/i.test(unit)) return 'bags';
+    if (/CTN|CARTON/i.test(unit)) return 'cartons';
+    if (/C\d+/i.test(unit)) return 'cartons';
+    if (/OUTER/i.test(unit)) return 'outers';
+    if (/TIN/i.test(unit)) return 'tins';
+    if (/DZN|DOZEN/i.test(unit)) return 'dozens';
+    
+    return 'units'; // fallback
+}
+
+// Keep backward compatibility
 function getPiecesPerCarton(unit) {
-    const match = unit.match(/C(\d+)P(CS)?/i);
-    return match ? parseInt(match[1]) : 1;
+    return getUnitsPerContainer(unit);
 }
 
 function selectProduct(itemId) {
@@ -410,18 +479,23 @@ function updateCalculatedQuantity() {
     let displayText;
     
     if (currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
-        const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
+        const piecesPerContainer = getPiecesPerCarton(currentProduct.unit);
+        const containerName = getContainerName(currentProduct.unit);
         
         if (unit === 'pieces') {
-            // When pieces selected, show equivalent cartons
-            const cartons = quantity / piecesPerCarton;
-            displayText = `${cartons.toFixed(3)} CTN`;
-            console.log('DEBUG: Converting pieces to cartons', { quantity, piecesPerCarton, cartons });
+            // When pieces selected, show equivalent containers
+            const containers = quantity / piecesPerContainer;
+            // Use abbreviation for display
+            const containerAbbr = containerName === 'bags' ? 'BAG' : 
+                                 containerName === 'cartons' ? 'CTN' : 
+                                 containerName === 'dozens' ? 'DZN' : 'UNIT';
+            displayText = `${containers.toFixed(3)} ${containerAbbr}`;
+            console.log('DEBUG: Converting pieces to containers', { quantity, piecesPerContainer, containers, containerName });
         } else {
-            // When cartons selected, show equivalent pieces  
-            const pieces = quantity * piecesPerCarton;
+            // When containers selected, show equivalent pieces  
+            const pieces = quantity * piecesPerContainer;
             displayText = `${pieces} PCS`;
-            console.log('DEBUG: Converting cartons to pieces', { quantity, piecesPerCarton, pieces });
+            console.log('DEBUG: Converting containers to pieces', { quantity, piecesPerContainer, pieces, containerName });
         }
     } else {
         displayText = `${quantity} ${unit}`;
@@ -673,17 +747,19 @@ function addToCart() {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         
         if (unit === 'pieces') {
-            // Convert pieces to cartons for Zoho (pieces ÷ pieces per carton = cartons)
+            // Convert pieces to containers for Zoho (pieces ÷ pieces per container = containers)
             transferQuantity = quantity / piecesPerCarton;
-            displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} cartons)`;
-            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} cartons)`;
-            console.log('DEBUG: addToCart pieces to cartons', { quantity, piecesPerCarton, transferQuantity });
+            const containerName = getContainerName(currentProduct.unit);
+            displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} ${containerName})`;
+            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} ${containerName})`;
+            console.log('DEBUG: addToCart pieces to containers', { quantity, piecesPerCarton, transferQuantity, containerName });
             console.log('DEBUG: Setting description:', itemDescription);
         } else {
-            // When cartons selected, keep as cartons for Zoho
+            // When containers selected, keep as containers for Zoho
             transferQuantity = quantity;
-            displayText = `${quantity} cartons (${quantity * piecesPerCarton} pieces)`;
-            console.log('DEBUG: addToCart cartons', { quantity, piecesPerCarton, equivalentPieces: quantity * piecesPerCarton });
+            const containerName = getContainerName(currentProduct.unit);
+            displayText = `${quantity} ${containerName} (${quantity * piecesPerCarton} pieces)`;
+            console.log('DEBUG: addToCart containers', { quantity, piecesPerCarton, equivalentPieces: quantity * piecesPerCarton, containerName });
         }
     } else {
         console.log('DEBUG: addToCart no conversion', { unit, hasUnit: !!currentProduct.unit });

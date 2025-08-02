@@ -277,11 +277,13 @@ function addToCart() {
     
     let transferQuantity = quantity;
     let displayText = `${quantity} ${unit}`;
+    let itemDescription = '';
     
     if (unit === 'pieces' && currentProduct.description) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.description);
         transferQuantity = quantity / piecesPerCarton;
         displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} cartons)`;
+        itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} cartons)`;
     }
     
     // Check if item already in cart
@@ -289,14 +291,23 @@ function addToCart() {
     if (existingItem) {
         existingItem.quantity_transfer += transferQuantity;
         existingItem.displayText = displayText;
+        if (itemDescription) {
+            existingItem.description = itemDescription;
+        }
     } else {
-        cart.push({
+        const cartItem = {
             item_id: currentProduct.item_id,
             name: currentProduct.name,
             quantity_transfer: transferQuantity,
             unit: currentProduct.unit || 'qty',
             displayText: displayText
-        });
+        };
+        
+        if (itemDescription) {
+            cartItem.description = itemDescription;
+        }
+        
+        cart.push(cartItem);
     }
     
     updateCartDisplay();

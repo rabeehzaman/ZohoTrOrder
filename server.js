@@ -449,12 +449,21 @@ app.post('/api/transfer-orders', async (req, res) => {
             from_warehouse_id: String(req.body.from_location_id),
             to_warehouse_id: String(req.body.to_location_id),
             date: req.body.date || new Date().toISOString().split('T')[0],
-            line_items: req.body.line_items.map(item => ({
-                item_id: String(item.item_id),
-                name: itemMap[item.item_id], // No fallback - we've already validated it exists
-                quantity_transfer: Number(item.quantity_transfer),
-                unit: "qty" // Always use qty since it works universally
-            }))
+            line_items: req.body.line_items.map(item => {
+                const lineItem = {
+                    item_id: String(item.item_id),
+                    name: itemMap[item.item_id], // No fallback - we've already validated it exists
+                    quantity_transfer: Number(item.quantity_transfer),
+                    unit: "qty" // Always use qty since it works universally
+                };
+                
+                // Add description if provided (contains piece conversion info)
+                if (item.description) {
+                    lineItem.description = item.description;
+                }
+                
+                return lineItem;
+            })
         };
         
         console.log('Formatted transfer order data:', JSON.stringify(transferOrderData, null, 2));

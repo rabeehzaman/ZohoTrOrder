@@ -122,52 +122,6 @@ function clearTokens() {
     }
 }
 
-// Update Railway environment variables if API token is available
-async function updateRailwayEnvVars() {
-    // Only run if we have Railway API token and service ID
-    if (!process.env.RAILWAY_API_TOKEN || !process.env.RAILWAY_SERVICE_ID) {
-        return;
-    }
-    
-    try {
-        console.log('🚂 Updating Railway environment variables...');
-        
-        const query = `
-            mutation UpdateServiceVariables($serviceId: String!, $variables: [ServiceVariableInput!]!) {
-                variableCollectionUpsert(
-                    input: {
-                        serviceId: $serviceId
-                        variables: $variables
-                    }
-                )
-            }
-        `;
-        
-        const variables = {
-            serviceId: process.env.RAILWAY_SERVICE_ID,
-            variables: [
-                { name: 'ZOHO_ACCESS_TOKEN', value: accessToken },
-                { name: 'ZOHO_REFRESH_TOKEN', value: refreshToken },
-                { name: 'ZOHO_TOKEN_EXPIRES_AT', value: tokenExpiresAt.toString() }
-            ]
-        };
-        
-        await axios.post('https://backboard.railway.app/graphql/v2', {
-            query,
-            variables
-        }, {
-            headers: {
-                'Authorization': `Bearer ${process.env.RAILWAY_API_TOKEN}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log('✅ Railway environment variables updated');
-    } catch (error) {
-        console.error('⚠️  Failed to update Railway env vars:', error.message);
-        // Don't throw - this is optional functionality
-    }
-}
 
 // Load tokens on startup
 loadTokens();
@@ -230,7 +184,8 @@ app.get('/auth/status', (req, res) => {
         tokenExpiresIn: expiresIn,
         tokenExpiresInMinutes: expiresInMinutes,
         autoRefreshEnabled: true,
-        willRefreshIn: expiresIn ? Math.max(0, expiresIn - 300) : null // 5 minutes before expiry
+        willRefreshIn: expiresIn ? Math.max(0, expiresIn - 300) : null, // 5 minutes before expiry
+        railwaySetupUrl: accessToken && refreshToken ? '/auth/tokens' : null
     });
 });
 
@@ -296,9 +251,8 @@ app.get('/auth/callback', async (req, res) => {
         refreshToken = tokenResponse.data.refresh_token;
         tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
         
-        // Save tokens to file and attempt to update Railway env vars
+        // Save tokens to file
         saveTokens();
-        await updateRailwayEnvVars();
         
         // Redirect to main app with success message
         res.redirect('/?auth=success');
@@ -333,9 +287,8 @@ app.post('/auth/token', async (req, res) => {
         refreshToken = tokenResponse.data.refresh_token;
         tokenExpiresAt = Date.now() + (tokenResponse.data.expires_in * 1000 || 3600 * 1000);
         
-        // Save tokens to file and attempt to update Railway env vars
+        // Save tokens to file
         saveTokens();
-        await updateRailwayEnvVars();
         
         res.json({ success: true, message: 'Authentication successful' });
     } catch (error) {
@@ -363,7 +316,6 @@ async function refreshAccessToken() {
         accessToken = response.data.access_token;
         tokenExpiresAt = Date.now() + (response.data.expires_in * 1000 || 3600 * 1000);
         saveTokens();
-        await updateRailwayEnvVars();
         console.log('✅ Access token refreshed successfully');
         return accessToken;
     } catch (error) {
@@ -847,6 +799,90 @@ app.get('/api/transfer-orders/:id/pdf', async (req, res) => {
     }
 });
 
+// Display tokens for manual Railway setup
+app.get('/auth/tokens', (req, res) => {
+    if (!accessToken || !refreshToken) {
+        return res.status(401).json({
+            error: 'No tokens available. Please authenticate first.'
+        });
+    }
+    
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Railway Environment Variables</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #333; }
+                .env-var { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 4px; font-family: monospace; word-break: break-all; }
+                .instructions { background: #e3f2fd; padding: 20px; border-radius: 4px; margin: 20px 0; }
+                .warning { background: #fff3cd; padding: 15px; border-radius: 4px; margin: 20px 0; border: 1px solid #ffeaa7; }
+                button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+                button:hover { background: #45a049; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Railway Environment Variables Setup</h1>
+                
+                <div class="warning">
+                    <strong>⚠️ Security Notice:</strong> These tokens are sensitive. Only use this page for initial Railway setup, then close it immediately.
+                </div>
+                
+                <div class="instructions">
+                    <h2>Instructions:</h2>
+                    <ol>
+                        <li>Copy each environment variable below</li>
+                        <li>Go to your Railway project settings</li>
+                        <li>Add these as environment variables</li>
+                        <li>Restart your Railway service</li>
+                        <li>Your app will stay authenticated permanently</li>
+                    </ol>
+                </div>
+                
+                <h2>Environment Variables to Add:</h2>
+                
+                <div class="env-var">
+                    <strong>ZOHO_ACCESS_TOKEN</strong><br>
+                    <span id="access-token">${accessToken}</span>
+                    <button onclick="copyToClipboard('access-token', this)">Copy</button>
+                </div>
+                
+                <div class="env-var">
+                    <strong>ZOHO_REFRESH_TOKEN</strong><br>
+                    <span id="refresh-token">${refreshToken}</span>
+                    <button onclick="copyToClipboard('refresh-token', this)">Copy</button>
+                </div>
+                
+                <div class="env-var">
+                    <strong>ZOHO_TOKEN_EXPIRES_AT</strong><br>
+                    <span id="expires-at">${tokenExpiresAt || ''}</span>
+                    <button onclick="copyToClipboard('expires-at', this)">Copy</button>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <button onclick="window.location.href='/'">← Back to App</button>
+                </div>
+            </div>
+            
+            <script>
+                function copyToClipboard(id, button) {
+                    const text = document.getElementById(id).textContent;
+                    navigator.clipboard.writeText(text).then(() => {
+                        button.textContent = 'Copied!';
+                        setTimeout(() => button.textContent = 'Copy', 2000);
+                    });
+                }
+            </script>
+        </body>
+        </html>
+    `;
+    
+    res.send(html);
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
     const health = {
@@ -864,8 +900,7 @@ app.get('/health', (req, res) => {
             redirectUri: getRedirectUri(),
             hasClientId: !!process.env.ZOHO_CLIENT_ID,
             hasClientSecret: !!process.env.ZOHO_CLIENT_SECRET,
-            hasOrgId: !!process.env.ZOHO_ORGANIZATION_ID,
-            railwayApiEnabled: !!(process.env.RAILWAY_API_TOKEN && process.env.RAILWAY_SERVICE_ID)
+            hasOrgId: !!process.env.ZOHO_ORGANIZATION_ID
         }
     };
     

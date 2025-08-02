@@ -190,30 +190,30 @@ function searchProducts() {
                 <div class="product-details">
                     SKU: ${item.sku || 'N/A'} | 
                     Unit: ${item.unit || 'qty'}
-                    ${item.description ? ` | ${parseUnitInfo(item.description)}` : ''}
+                    ${item.unit && hasUnitConversion(item.unit) ? ` | ${parseUnitInfo(item.unit)}` : ''}
                 </div>
             </div>
-            ${item.description && hasUnitConversion(item.description) ? 
-                `<div class="product-unit">${parseUnitInfo(item.description)}</div>` : ''}
+            ${item.unit && hasUnitConversion(item.unit) ? 
+                `<div class="product-unit">${parseUnitInfo(item.unit)}</div>` : ''}
         </div>
     `).join('');
 }
 
-function parseUnitInfo(description) {
-    // Parse C24PCS or C24P format from description
-    const match = description.match(/C(\d+)P(CS)?/i);
+function parseUnitInfo(unit) {
+    // Parse C24PCS or C24P format from unit
+    const match = unit.match(/C(\d+)P(CS)?/i);
     if (match) {
         return `1 Carton = ${match[1]} Pieces`;
     }
     return '';
 }
 
-function hasUnitConversion(description) {
-    return /C\d+P(CS)?/i.test(description);
+function hasUnitConversion(unit) {
+    return /C\d+P(CS)?/i.test(unit);
 }
 
-function getPiecesPerCarton(description) {
-    const match = description.match(/C(\d+)P(CS)?/i);
+function getPiecesPerCarton(unit) {
+    const match = unit.match(/C(\d+)P(CS)?/i);
     return match ? parseInt(match[1]) : 1;
 }
 
@@ -224,12 +224,12 @@ function selectProduct(itemId) {
     document.getElementById('popup-product-name').textContent = currentProduct.name;
     
     // Check if product has carton information
-    const hasCartonInfo = currentProduct.description && hasUnitConversion(currentProduct.description);
+    const hasCartonInfo = currentProduct.unit && hasUnitConversion(currentProduct.unit);
     const cartonRadio = document.getElementById('unit-cartons');
     const cartonLabel = cartonRadio.nextElementSibling;
     
     if (hasCartonInfo) {
-        const piecesPerCarton = getPiecesPerCarton(currentProduct.description);
+        const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         document.getElementById('carton-info').textContent = `${piecesPerCarton} pcs`;
         cartonRadio.disabled = false;
         cartonLabel.style.opacity = '1';
@@ -250,8 +250,8 @@ function updateCalculatedQuantity() {
     
     let calculatedQty = quantity;
     
-    if (unit === 'pieces' && currentProduct.description) {
-        const piecesPerCarton = getPiecesPerCarton(currentProduct.description);
+    if (unit === 'pieces' && currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
+        const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         calculatedQty = quantity / piecesPerCarton;
     }
     
@@ -279,8 +279,8 @@ function addToCart() {
     let displayText = `${quantity} ${unit}`;
     let itemDescription = '';
     
-    if (unit === 'pieces' && currentProduct.description) {
-        const piecesPerCarton = getPiecesPerCarton(currentProduct.description);
+    if (unit === 'pieces' && currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
+        const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         transferQuantity = quantity / piecesPerCarton;
         displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} cartons)`;
         itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} cartons)`;

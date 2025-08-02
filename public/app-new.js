@@ -466,8 +466,8 @@ function selectProduct(itemId) {
     }
     
     // Reset input values
-    piecesInput.value = 0;
-    cartonsInput.value = 0;
+    piecesInput.value = '0';
+    cartonsInput.value = '0';
     updateCalculatedQuantity();
     const popup = document.getElementById('quantity-popup');
     popup.style.display = 'flex';
@@ -875,8 +875,8 @@ function removeFromCart(index) {
 function closePopup() {
     const popup = document.getElementById('quantity-popup');
     popup.style.display = 'none';
-    document.getElementById('pieces-input').value = 0;
-    document.getElementById('cartons-input').value = 0;
+    document.getElementById('pieces-input').value = '0';
+    document.getElementById('cartons-input').value = '0';
     currentProduct = null;
 }
 

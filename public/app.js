@@ -279,11 +279,20 @@ function addToCart() {
     let displayText = `${quantity} ${unit}`;
     let itemDescription = '';
     
+    // Debug logging
+    console.log('addToCart debug:', {
+        unit: unit,
+        currentProductUnit: currentProduct.unit,
+        hasConversion: hasUnitConversion(currentProduct.unit),
+        quantity: quantity
+    });
+    
     if (unit === 'pieces' && currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         transferQuantity = quantity / piecesPerCarton;
         displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} cartons)`;
         itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} cartons)`;
+        console.log('Conversion applied:', { piecesPerCarton, transferQuantity, itemDescription });
     }
     
     // Check if item already in cart
@@ -449,6 +458,9 @@ async function createTransferOrder() {
             // Include description if it exists (piece conversion info)
             if (item.description) {
                 lineItem.description = item.description;
+                console.log('Adding description to line item:', item.description);
+            } else {
+                console.log('No description found for item:', item.name);
             }
             
             return lineItem;

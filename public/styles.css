@@ -468,13 +468,13 @@ h1 {
 
 .modern-input {
     width: 100%;
-    background: #f8fafc;
+    background: #ffffff !important;
     border: 2px solid #e2e8f0;
     border-radius: 16px;
     padding: 16px 20px;
     font-size: 18px;
-    font-weight: 500;
-    color: #1f2937 !important;
+    font-weight: 600;
+    color: #1a202c !important;
     transition: all 0.2s ease;
     box-sizing: border-box;
     outline: none;
@@ -482,20 +482,25 @@ h1 {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    -webkit-text-fill-color: #1a202c !important;
 }
 
 .modern-input:focus {
-    background: white;
+    background: white !important;
     border-color: #667eea;
     transform: translateY(-2px);
     box-shadow: 
         0 8px 25px rgba(102, 126, 234, 0.15),
         0 4px 12px rgba(102, 126, 234, 0.1);
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
 }
 
 .modern-input:hover:not(:focus) {
     border-color: #cbd5e1;
-    background: #f1f5f9;
+    background: #ffffff !important;
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
 }
 
 .modern-input::placeholder {
@@ -663,11 +668,16 @@ h1 {
 /* Input Validation States */
 .modern-input:invalid {
     border-color: #f87171;
-    background: #fef2f2;
+    background: #ffffff !important;
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
 }
 
 .modern-input:invalid:focus {
     border-color: #ef4444;
+    background: #ffffff !important;
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
     box-shadow: 
         0 8px 25px rgba(239, 68, 68, 0.15),
         0 4px 12px rgba(239, 68, 68, 0.1);
@@ -675,7 +685,20 @@ h1 {
 
 .modern-input:valid:not(:placeholder-shown) {
     border-color: #10b981;
-    background: #f0fdf4;
+    background: #ffffff !important;
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
+}
+
+/* Force visible text in all states */
+.modern-input,
+.modern-input:focus,
+.modern-input:hover,
+.modern-input:active,
+.modern-input:visited {
+    color: #1a202c !important;
+    -webkit-text-fill-color: #1a202c !important;
+    background: #ffffff !important;
 }
 
 /* Mobile Responsive */
@@ -730,14 +753,17 @@ h1 {
     }
     
     .modern-input {
-        background: #334155;
+        background: #ffffff !important;
         border-color: #475569;
-        color: white !important;
+        color: #1a202c !important;
+        -webkit-text-fill-color: #1a202c !important;
     }
     
     .modern-input:focus {
-        background: #475569;
+        background: #ffffff !important;
         border-color: #667eea;
+        color: #1a202c !important;
+        -webkit-text-fill-color: #1a202c !important;
     }
     
     .modern-input::placeholder,

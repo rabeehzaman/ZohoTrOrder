@@ -429,6 +429,11 @@ function getContainerName(unit) {
     return 'units'; // fallback
 }
 
+// Round quantity to 4 decimal places for consistent precision
+function roundQuantity(quantity) {
+    return Math.round(quantity * 10000) / 10000;
+}
+
 // Keep backward compatibility
 function getPiecesPerCarton(unit) {
     return getUnitsPerContainer(unit);
@@ -484,7 +489,7 @@ function updateCalculatedQuantity() {
         
         if (unit === 'pieces') {
             // When pieces selected, show equivalent containers
-            const containers = quantity / piecesPerContainer;
+            const containers = roundQuantity(quantity / piecesPerContainer);
             // Use abbreviation for display
             const containerAbbr = containerName === 'bags' ? 'BAG' : 
                                  containerName === 'cartons' ? 'CTN' : 
@@ -748,7 +753,7 @@ function addToCart() {
         
         if (unit === 'pieces') {
             // Convert pieces to containers for Zoho (pieces ÷ pieces per container = containers)
-            transferQuantity = quantity / piecesPerCarton;
+            transferQuantity = roundQuantity(quantity / piecesPerCarton);
             const containerName = getContainerName(currentProduct.unit);
             displayText = `${quantity} pieces (${transferQuantity.toFixed(3)} ${containerName})`;
             itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(3)} ${containerName})`;

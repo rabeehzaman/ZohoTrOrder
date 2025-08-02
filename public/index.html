@@ -110,18 +110,19 @@
         <div id="quantity-popup" class="popup" style="display: none;">
             <div class="popup-content">
                 <h3 id="popup-product-name"></h3>
-                <div class="unit-selection">
-                    <input type="radio" id="unit-pieces" name="unit" value="pieces" checked>
-                    <label for="unit-pieces">Pieces</label>
-                    <input type="radio" id="unit-cartons" name="unit" value="cartons">
-                    <label for="unit-cartons">Cartons (<span id="carton-info"></span>)</label>
+                <div class="dual-quantity-inputs">
+                    <div class="quantity-row">
+                        <label>Pieces:</label>
+                        <input type="number" id="pieces-input" min="0" value="0">
+                    </div>
+                    <div class="quantity-row">
+                        <label>Cartons:</label>
+                        <input type="number" id="cartons-input" min="0" step="0.01" value="0">
+                        <span id="carton-info" class="unit-info"></span>
+                    </div>
                 </div>
-                <div class="quantity-input">
-                    <label>Quantity:</label>
-                    <input type="number" id="quantity-input" min="1" value="1">
-                </div>
-                <div class="calculated-quantity">
-                    <p>Equivalent: <span id="calculated-qty">1</span></p>
+                <div class="total-display">
+                    <p>Total: <span id="total-quantity">0</span> cartons</p>
                 </div>
                 <div class="popup-buttons">
                     <button onclick="addToCart()">Add to Cart</button>

@@ -447,28 +447,34 @@ function selectProduct(itemId) {
     
     // Check if product has carton information
     const hasCartonInfo = currentProduct.unit && hasUnitConversion(currentProduct.unit);
-    const cartonRadio = document.getElementById('unit-cartons');
-    const cartonLabel = cartonRadio.nextElementSibling;
+    const piecesInput = document.getElementById('pieces-input');
+    const cartonsInput = document.getElementById('cartons-input');
+    const cartonInfo = document.getElementById('carton-info');
     
     if (hasCartonInfo) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
-        document.getElementById('carton-info').textContent = `${piecesPerCarton} pcs`;
-        cartonRadio.disabled = false;
-        cartonLabel.style.opacity = '1';
+        const containerName = getContainerName(currentProduct.unit);
+        cartonInfo.textContent = `(${piecesPerCarton} pcs per ${containerName.slice(0, -1)})`;
+        cartonsInput.disabled = false;
+        cartonsInput.style.opacity = '1';
+        cartonInfo.style.opacity = '1';
     } else {
-        cartonRadio.disabled = true;
-        cartonLabel.style.opacity = '0.5';
-        document.getElementById('unit-pieces').checked = true;
+        cartonsInput.disabled = true;
+        cartonsInput.style.opacity = '0.5';
+        cartonInfo.style.opacity = '0.5';
+        cartonInfo.textContent = '(no conversion available)';
     }
     
-    document.getElementById('quantity-input').value = 1;
+    // Reset input values
+    piecesInput.value = 0;
+    cartonsInput.value = 0;
     updateCalculatedQuantity();
     document.getElementById('quantity-popup').style.display = 'flex';
     
-    // Focus on pieces radio button for arrow key navigation
+    // Focus on pieces input for immediate entry
     setTimeout(() => {
-        const piecesRadio = document.getElementById('unit-pieces');
-        piecesRadio.focus();
+        piecesInput.focus();
+        piecesInput.select();
         
         // Setup popup keyboard navigation
         setupPopupNavigation();
@@ -476,46 +482,62 @@ function selectProduct(itemId) {
 }
 
 function updateCalculatedQuantity() {
-    const quantity = parseFloat(document.getElementById('quantity-input').value) || 0;
-    const unit = document.querySelector('input[name="unit"]:checked').value;
+    const piecesValue = parseFloat(document.getElementById('pieces-input').value) || 0;
+    const cartonsValue = parseFloat(document.getElementById('cartons-input').value) || 0;
     
-    console.log('DEBUG: updateCalculatedQuantity called', { quantity, unit, productUnit: currentProduct?.unit });
+    console.log('DEBUG: updateCalculatedQuantity called', { piecesValue, cartonsValue, productUnit: currentProduct?.unit });
     
-    let displayText;
+    let totalCartons = cartonsValue;
+    let displayText = '0 cartons';
     
     if (currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
-        const piecesPerContainer = getPiecesPerCarton(currentProduct.unit);
+        const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
         const containerName = getContainerName(currentProduct.unit);
         
-        if (unit === 'pieces') {
-            // When pieces selected, show equivalent containers
-            const containers = roundQuantity(quantity / piecesPerContainer);
-            // Use abbreviation for display
-            const containerAbbr = containerName === 'bags' ? 'BAG' : 
-                                 containerName === 'cartons' ? 'CTN' : 
-                                 containerName === 'dozens' ? 'DZN' : 'UNIT';
-            displayText = `${containers.toFixed(4)} ${containerAbbr}`;
-            console.log('DEBUG: Converting pieces to containers', { quantity, piecesPerContainer, containers, containerName });
+        // Calculate total: pieces ÷ pieces_per_carton + cartons
+        const cartonsFromPieces = piecesValue / piecesPerCarton;
+        totalCartons = roundQuantity(cartonsFromPieces + cartonsValue);
+        
+        // Create display text showing breakdown
+        const totalPieces = (cartonsValue * piecesPerCarton) + piecesValue;
+        
+        if (totalCartons > 0) {
+            displayText = `${totalCartons.toFixed(4)} ${containerName} (${totalPieces} pieces total)`;
         } else {
-            // When containers selected, show equivalent pieces  
-            const pieces = quantity * piecesPerContainer;
-            displayText = `${pieces} PCS`;
-            console.log('DEBUG: Converting containers to pieces', { quantity, piecesPerContainer, pieces, containerName });
+            displayText = '0 cartons';
         }
+        
+        console.log('DEBUG: Conversion calculation', { 
+            piecesValue, 
+            cartonsValue, 
+            piecesPerCarton, 
+            cartonsFromPieces, 
+            totalCartons,
+            totalPieces,
+            containerName 
+        });
     } else {
-        displayText = `${quantity} ${unit}`;
+        // No conversion available - treat everything as units
+        totalCartons = piecesValue + cartonsValue;
+        if (totalCartons > 0) {
+            displayText = `${totalCartons} units`;
+        }
     }
     
-    document.getElementById('calculated-qty').textContent = displayText;
+    document.getElementById('total-quantity').textContent = displayText;
+    
+    // Store the calculated total for use in addToCart
+    currentProduct._calculatedTotal = totalCartons;
+    currentProduct._totalPieces = (currentProduct.unit && hasUnitConversion(currentProduct.unit)) 
+        ? ((cartonsValue * getPiecesPerCarton(currentProduct.unit)) + piecesValue)
+        : (piecesValue + cartonsValue);
 }
 
 // Update calculated quantity when inputs change
 document.addEventListener('DOMContentLoaded', function() {
-    // Quantity popup event listeners
-    document.getElementById('quantity-input').addEventListener('input', updateCalculatedQuantity);
-    document.querySelectorAll('input[name="unit"]').forEach(radio => {
-        radio.addEventListener('change', updateCalculatedQuantity);
-    });
+    // Quantity popup event listeners for new dual inputs
+    document.getElementById('pieces-input').addEventListener('input', updateCalculatedQuantity);
+    document.getElementById('cartons-input').addEventListener('input', updateCalculatedQuantity);
     
     // Search input event listener for real-time search
     document.getElementById('search-input').addEventListener('input', searchProductsWithDelay);
@@ -587,8 +609,18 @@ function setupKeyboardNavigation() {
         selectedProductIndex = -1;
     });
     
-    // Quantity input keyboard handling
-    document.getElementById('quantity-input').addEventListener('keydown', function(e) {
+    // Dual quantity inputs keyboard handling
+    document.getElementById('pieces-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addToCart();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closePopup();
+        }
+    });
+    
+    document.getElementById('cartons-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             addToCart();
@@ -669,22 +701,26 @@ function setupTabNavigation() {
 }
 
 function setupPopupNavigation() {
-    const quantityInput = document.getElementById('quantity-input');
-    const piecesRadio = document.getElementById('unit-pieces');
-    const cartonsRadio = document.getElementById('unit-cartons');
+    const piecesInput = document.getElementById('pieces-input');
+    const cartonsInput = document.getElementById('cartons-input');
     
-    // Remove any existing event listeners to avoid duplicates
-    const newQuantityInput = quantityInput.cloneNode(true);
-    quantityInput.parentNode.replaceChild(newQuantityInput, quantityInput);
+    // Remove any existing event listeners to avoid duplicates by cloning elements
+    const newPiecesInput = piecesInput.cloneNode(true);
+    const newCartonsInput = cartonsInput.cloneNode(true);
+    piecesInput.parentNode.replaceChild(newPiecesInput, piecesInput);
+    cartonsInput.parentNode.replaceChild(newCartonsInput, cartonsInput);
     
-    // Tab navigation within popup: quantity → unit selection → quantity
-    newQuantityInput.addEventListener('keydown', function(e) {
+    // Re-add the input event listeners for calculations
+    newPiecesInput.addEventListener('input', updateCalculatedQuantity);
+    newCartonsInput.addEventListener('input', updateCalculatedQuantity);
+    
+    // Tab navigation within popup: pieces → cartons → pieces
+    newPiecesInput.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
-            // Focus on the checked radio button
-            const checkedRadio = document.querySelector('input[name="unit"]:checked');
-            if (checkedRadio) {
-                checkedRadio.focus();
+            if (!newCartonsInput.disabled) {
+                newCartonsInput.focus();
+                newCartonsInput.select();
             }
         } else if (e.key === 'Enter') {
             e.preventDefault();
@@ -695,32 +731,19 @@ function setupPopupNavigation() {
         }
     });
     
-    // Radio button navigation
-    [piecesRadio, cartonsRadio].forEach(radio => {
-        radio.addEventListener('keydown', function(e) {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                newQuantityInput.focus();
-                newQuantityInput.select();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                addToCart();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                closePopup();
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                // Toggle between pieces and cartons
-                if (this.id === 'unit-pieces' && !cartonsRadio.disabled) {
-                    cartonsRadio.checked = true;
-                    cartonsRadio.focus();
-                } else if (this.id === 'unit-cartons') {
-                    piecesRadio.checked = true;
-                    piecesRadio.focus();
-                }
-                updateCalculatedQuantity();
-            }
-        });
+    // Cartons input navigation
+    newCartonsInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            newPiecesInput.focus();
+            newPiecesInput.select();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            addToCart();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closePopup();
+        }
     });
 }
 
@@ -736,38 +759,54 @@ function updateSelectedProduct(productItems, selectedIndex) {
 }
 
 function addToCart() {
-    const quantity = parseFloat(document.getElementById('quantity-input').value) || 0;
-    const unit = document.querySelector('input[name="unit"]:checked').value;
+    const piecesValue = parseFloat(document.getElementById('pieces-input').value) || 0;
+    const cartonsValue = parseFloat(document.getElementById('cartons-input').value) || 0;
     
-    if (quantity <= 0) {
-        alert('Please enter a valid quantity');
+    if (piecesValue <= 0 && cartonsValue <= 0) {
+        alert('Please enter a valid quantity in at least one field');
         return;
     }
     
-    let transferQuantity = quantity;
-    let displayText = `${quantity} ${unit}`;
+    // Use the pre-calculated values from updateCalculatedQuantity
+    const transferQuantity = currentProduct._calculatedTotal || 0;
+    const totalPieces = currentProduct._totalPieces || 0;
+    
+    let displayText = '';
     let itemDescription = '';
     
     if (currentProduct.unit && hasUnitConversion(currentProduct.unit)) {
         const piecesPerCarton = getPiecesPerCarton(currentProduct.unit);
+        const containerName = getContainerName(currentProduct.unit);
         
-        if (unit === 'pieces') {
-            // Convert pieces to containers for Zoho (pieces ÷ pieces per container = containers)
-            transferQuantity = roundQuantity(quantity / piecesPerCarton);
-            const containerName = getContainerName(currentProduct.unit);
-            displayText = `${quantity} pieces (${transferQuantity.toFixed(4)} ${containerName})`;
-            itemDescription = `Original: ${quantity} pieces (converted to ${transferQuantity.toFixed(4)} ${containerName})`;
-            console.log('DEBUG: addToCart pieces to containers', { quantity, piecesPerCarton, transferQuantity, containerName });
-            console.log('DEBUG: Setting description:', itemDescription);
+        // Create display text based on what was entered
+        if (piecesValue > 0 && cartonsValue > 0) {
+            // Both fields have values
+            displayText = `${cartonsValue} ${containerName} + ${piecesValue} pieces (${transferQuantity.toFixed(4)} ${containerName} total)`;
+            itemDescription = `Mixed quantity: ${cartonsValue} ${containerName} + ${piecesValue} pieces = ${transferQuantity.toFixed(4)} ${containerName} (${totalPieces} pieces total)`;
+        } else if (piecesValue > 0) {
+            // Only pieces entered
+            displayText = `${piecesValue} pieces (${transferQuantity.toFixed(4)} ${containerName})`;
+            itemDescription = `Original: ${piecesValue} pieces (converted to ${transferQuantity.toFixed(4)} ${containerName})`;
         } else {
-            // When containers selected, keep as containers for Zoho
-            transferQuantity = quantity;
-            const containerName = getContainerName(currentProduct.unit);
-            displayText = `${quantity} ${containerName} (${quantity * piecesPerCarton} pieces)`;
-            console.log('DEBUG: addToCart containers', { quantity, piecesPerCarton, equivalentPieces: quantity * piecesPerCarton, containerName });
+            // Only cartons entered
+            displayText = `${cartonsValue} ${containerName} (${totalPieces} pieces)`;
+            itemDescription = `Original: ${cartonsValue} ${containerName} (${totalPieces} pieces equivalent)`;
         }
+        
+        console.log('DEBUG: addToCart dual inputs', { 
+            piecesValue, 
+            cartonsValue, 
+            transferQuantity, 
+            totalPieces, 
+            containerName,
+            displayText 
+        });
     } else {
-        console.log('DEBUG: addToCart no conversion', { unit, hasUnit: !!currentProduct.unit });
+        // No conversion available
+        const totalQuantity = piecesValue + cartonsValue;
+        displayText = `${totalQuantity} units`;
+        transferQuantity = totalQuantity;
+        console.log('DEBUG: addToCart no conversion', { piecesValue, cartonsValue, totalQuantity });
     }
     
     // Check if item already in cart
@@ -832,7 +871,8 @@ function removeFromCart(index) {
 
 function closePopup() {
     document.getElementById('quantity-popup').style.display = 'none';
-    document.getElementById('quantity-input').value = 1;
+    document.getElementById('pieces-input').value = 0;
+    document.getElementById('cartons-input').value = 0;
     currentProduct = null;
 }
 

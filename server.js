@@ -398,10 +398,9 @@ app.get('/api/items', async (req, res) => {
         
         // Filter only inventory items (exclude services, non-inventory items)
         const inventoryItems = allItems.filter(item => {
-            // Filter criteria for inventory items
+            // Filter criteria for inventory items - include items not enabled for sales since transfers are internal operations
             return item.item_type === 'inventory' && 
                    item.status === 'active' && 
-                   item.is_returnable !== false &&
                    !item.is_combo_product &&
                    item.track_inventory === true &&
                    item.product_type === 'goods';

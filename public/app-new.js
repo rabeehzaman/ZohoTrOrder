@@ -362,8 +362,8 @@ function parseUnitInfo(unit) {
 function hasUnitConversion(unit) {
     if (!unit) return false;
     
-    // Pattern 1: C##P format (existing: C12P, C24P, etc.)
-    if (/C\d+P(CS)?/i.test(unit)) return true;
+    // Pattern 1: C##P format (existing: C12P, C24P, etc.) and C-##P format
+    if (/C-?\d+P(CS)?/i.test(unit)) return true;
     
     // Pattern 2: UNIT(number) format (BAG(8), CTN(144), etc.)
     // Also includes C3(RPT) style patterns
@@ -384,8 +384,8 @@ function hasUnitConversion(unit) {
 function getUnitsPerContainer(unit) {
     if (!unit) return 1;
     
-    // Pattern 1: C##P format (C12P, C24P → 12, 24)
-    let match = unit.match(/C(\d+)P(CS)?/i);
+    // Pattern 1: C##P format (C12P, C24P → 12, 24) and C-##P format
+    let match = unit.match(/C-?(\d+)P(CS)?/i);
     if (match) return parseInt(match[1]);
     
     // Pattern 2: UNIT(number) format (BAG(8), CTN(144) → 8, 144)
@@ -396,8 +396,8 @@ function getUnitsPerContainer(unit) {
         if (match) return parseInt(match[1]);
     }
     
-    // Pattern 3: C## format without P (C54, C2 → 54, 2)
-    match = unit.match(/C(\d+)$/i);
+    // Pattern 3: C## format without P (C54, C2 → 54, 2) and C-## format
+    match = unit.match(/C-?(\d+)$/i);
     if (match) return parseInt(match[1]);
     
     // Pattern 4: CTN 6(10) format (6×10 = 60)

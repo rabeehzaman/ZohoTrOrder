@@ -200,8 +200,8 @@ function searchProducts() {
 }
 
 function parseUnitInfo(unit) {
-    // Parse C24PCS or C24P format from unit
-    const match = unit.match(/C(\d+)P(CS)?/i);
+    // Parse C24PCS or C24P format from unit (with or without hyphen)
+    const match = unit.match(/C-?(\d+)P(CS)?/i);
     if (match) {
         return `1 Carton = ${match[1]} Pieces`;
     }
@@ -209,11 +209,11 @@ function parseUnitInfo(unit) {
 }
 
 function hasUnitConversion(unit) {
-    return /C\d+P(CS)?/i.test(unit);
+    return /C-?\d+P(CS)?/i.test(unit);
 }
 
 function getPiecesPerCarton(unit) {
-    const match = unit.match(/C(\d+)P(CS)?/i);
+    const match = unit.match(/C-?(\d+)P(CS)?/i);
     return match ? parseInt(match[1]) : 1;
 }
 

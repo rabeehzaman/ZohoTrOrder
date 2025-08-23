@@ -366,8 +366,10 @@ function hasUnitConversion(unit) {
     if (/C-?\d+P(CS)?/i.test(unit)) return true;
     
     // Pattern 2: UNIT(number) format (BAG(8), CTN(144), etc.)
-    // Also includes C3(RPT) style patterns
     if (/\w+\(\d+\w*\)/i.test(unit)) return true;
+    
+    // Pattern 2b: C#(...) format (C3(RPT), C3(OUT), etc.) - specific for carton patterns
+    if (/C\d+\([^)]*\)/i.test(unit)) return true;
     
     // Pattern 3: C## format without P (C54, C2, etc.)
     if (/C\d+$/i.test(unit)) return true;
@@ -388,8 +390,11 @@ function getUnitsPerContainer(unit) {
     let match = unit.match(/C-?(\d+)P(CS)?/i);
     if (match) return parseInt(match[1]);
     
+    // Pattern 1b: C#(...) format (C3(RPT), C3(OUT) → 3) - extract number after C, ignore parentheses
+    match = unit.match(/C(\d+)\([^)]*\)/i);
+    if (match) return parseInt(match[1]);
+    
     // Pattern 2: UNIT(number) format (BAG(8), CTN(144) → 8, 144)
-    // Also handles C3(RPT) → 3 (ignore text after number)
     // But skip multi-part patterns that should be handled later
     if (!/CTN\s*\d+\(|\(\d+\)\d+/.test(unit)) {
         match = unit.match(/\w+\((\d+)\w*\)/i);

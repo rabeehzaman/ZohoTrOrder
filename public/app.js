@@ -209,12 +209,19 @@ function parseUnitInfo(unit) {
 }
 
 function hasUnitConversion(unit) {
-    return /C-?\d+P(CS)?/i.test(unit);
+    return /C-?\d+P(CS)?/i.test(unit) || /C\d+\([^)]*\)/i.test(unit);
 }
 
 function getPiecesPerCarton(unit) {
-    const match = unit.match(/C-?(\d+)P(CS)?/i);
-    return match ? parseInt(match[1]) : 1;
+    // Check for C#P format first
+    let match = unit.match(/C-?(\d+)P(CS)?/i);
+    if (match) return parseInt(match[1]);
+    
+    // Check for C#(...) format - extract number after C, ignore parentheses content
+    match = unit.match(/C(\d+)\([^)]*\)/i);
+    if (match) return parseInt(match[1]);
+    
+    return 1;
 }
 
 function selectProduct(itemId) {

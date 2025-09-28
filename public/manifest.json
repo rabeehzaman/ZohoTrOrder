@@ -1,7 +1,7 @@
 {
-  "name": "Transfer Order POS",
-  "short_name": "TO POS",
-  "description": "Transfer Order Point of Sale System for Zoho Inventory",
+  "name": "Transfer Order Sweets",
+  "short_name": "TO Sweets",
+  "description": "Transfer Order Sweets System for Zoho Inventory",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

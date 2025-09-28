@@ -155,8 +155,8 @@ async function refreshTokensOnStartup() {
 refreshTokensOnStartup();
 
 // Zoho OAuth endpoints
-const ZOHO_ACCOUNTS_URL = 'https://accounts.zoho.sa';
-const ZOHO_API_URL = 'https://www.zohoapis.sa/inventory/v1';
+const ZOHO_ACCOUNTS_URL = 'https://accounts.zoho.com';
+const ZOHO_API_URL = 'https://www.zohoapis.com/inventory/v1';
 
 // Dynamic redirect URI based on environment
 function getRedirectUri() {
@@ -457,50 +457,57 @@ app.get('/api/locations', async (req, res) => {
             first_location_sample: response.data.locations?.[0]
         }, null, 2));
         
-        // Log detailed structure to understand nested warehouses
+        // Log detailed structure to understand locations
         const sampleLocation = response.data.locations?.[0];
         if (sampleLocation) {
             console.log('Sample location structure:', JSON.stringify({
                 location_id: sampleLocation.location_id,
                 location_name: sampleLocation.location_name,
-                is_storage_location_enabled: sampleLocation.is_storage_location_enabled,
-                warehouses_count: sampleLocation.warehouses?.length || 0,
+                type: sampleLocation.type,
+                is_location_active: sampleLocation.is_location_active,
                 warehouses: sampleLocation.warehouses
             }, null, 2));
         }
         
-        // Extract actual warehouses from nested structure within locations
-        // Include all warehouses even if storage location is not enabled
+        // For organizations using locations directly (no nested warehouses)
+        // Use locations as warehouses for transfer orders
         const allWarehouses = [];
-        
+
         response.data.locations?.forEach(location => {
+            // Check if location has nested warehouses first
             if (location.warehouses?.length > 0) {
-                // Add warehouses from this location (only active ones)
+                // Add nested warehouses (original logic)
                 location.warehouses.forEach(warehouse => {
                     if (warehouse.status === 'active') {
                         allWarehouses.push({
-                            location_id: warehouse.warehouse_id, // Use warehouse_id for transfer orders
+                            location_id: warehouse.warehouse_id,
                             location_name: `${warehouse.warehouse_name} (${location.location_name})`,
                             warehouse_id: warehouse.warehouse_id,
                             warehouse_name: warehouse.warehouse_name,
                             parent_location_id: location.location_id,
                             parent_location_name: location.location_name,
-                            parent_location_storage_enabled: location.is_storage_location_enabled,
-                            status: warehouse.status,
-                            is_primary: warehouse.is_primary || false
+                            status: warehouse.status
                         });
-                        console.log(`Added active warehouse: ${warehouse.warehouse_name} (${warehouse.warehouse_id})`);
-                    } else {
-                        console.log(`Skipped inactive warehouse: ${warehouse.warehouse_name} (${warehouse.warehouse_id}) - status: ${warehouse.status}`);
+                        console.log(`Added nested warehouse: ${warehouse.warehouse_name}`);
                     }
                 });
-                console.log(`Found ${location.warehouses.length} warehouses in location '${location.location_name}' (storage enabled: ${location.is_storage_location_enabled})`);
             } else {
-                console.log(`No warehouses found in location '${location.location_name}'`);
+                // Use location directly as a warehouse option
+                if (location.is_location_active !== false) {
+                    allWarehouses.push({
+                        location_id: location.location_id,
+                        location_name: location.location_name,
+                        warehouse_id: location.location_id,
+                        warehouse_name: location.location_name,
+                        type: location.type || 'location',
+                        status: 'active'
+                    });
+                    console.log(`Using location as warehouse: ${location.location_name} (${location.type || 'location'})`);
+                }
             }
         });
-        
-        console.log(`Found ${allWarehouses.length} warehouses from ${response.data.locations?.length || 0} locations`);
+
+        console.log(`Total transfer locations available: ${allWarehouses.length}`);
         
         const transformedData = {
             code: response.data.code,

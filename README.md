@@ -1,4 +1,4 @@
-# Transfer Order POS for Zoho Inventory
+# Transfer Order Sweets for Zoho Inventory
 
 A simple, fast web application for creating transfer orders in Zoho Inventory with automatic unit conversion between cartons and pieces.
 
@@ -23,16 +23,16 @@ A simple, fast web application for creating transfer orders in Zoho Inventory wi
 ### 1. Clone the repository
 ```bash
 git clone [your-repo-url]
-cd TransferOrderPOS
+cd TransferOrderSweets
 ```
 
 ### 2. Configure environment variables
 The `.env` file is already configured with your credentials:
 ```
-ZOHO_CLIENT_ID=1000.2EULDEGSDZQAC31GP2YE1YZAEPKDVX
-ZOHO_CLIENT_SECRET=1765afc71a79346a81f3ca04af2ea23d94c68e47b2
+ZOHO_CLIENT_ID=1000.1ACKGV3P1C4B5IL4JF4G2D9516UY4A
+ZOHO_CLIENT_SECRET=6dd8f88d06ec2a607b50e866e31df5d99a5e467626
 ZOHO_REDIRECT_URI=https://httpbin.org/anything
-ZOHO_ORGANIZATION_ID=150000163897
+ZOHO_ORGANIZATION_ID=896180965
 PORT=3000
 ```
 
